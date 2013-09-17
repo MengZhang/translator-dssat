@@ -1,8 +1,10 @@
 package org.agmip.translators.dssat;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import org.agmip.ace.AceSoil;
 import static org.agmip.util.MapUtil.*;
 
 /**
@@ -24,7 +26,23 @@ public class DssatSoilFileHelper {
     public String getSoilID(Map soilData) {
 
         String hash = getObjectOr(soilData, "soil_id", "").toString();
+        return getSoilId(hash);
+    }
 
+    /**
+     * Generate the soil file name for auto-generating (extend name not
+     * included)
+     *
+     * @param soilData soil data holder
+     * @return the soil id (10-bit)
+     */
+    public String getSoilID(AceSoil soilData) throws IOException {
+
+        String hash = soilData.getValueOr("soil_id", "").toString();
+        return getSoilId(hash);
+    }
+    
+    private String getSoilId(String hash) {
         if (hashToName.containsKey(hash)) {
             return hashToName.get(hash);
         } else {

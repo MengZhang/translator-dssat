@@ -7,7 +7,17 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import org.agmip.ace.AceBaseComponentType;
+import org.agmip.ace.AceDataset;
+import org.agmip.ace.AceExperiment;
+import org.agmip.ace.AceRecord;
+import org.agmip.ace.AceRecordCollection;
+import org.agmip.ace.AceSoil;
+import org.agmip.ace.io.AceParser;
+import org.agmip.util.JSONAdapter;
 import static org.agmip.util.MapUtil.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,14 +39,112 @@ public class DssatSoilOutput extends DssatCommonOutput {
      * @param result data holder object
      */
     @Override
-    public void writeFile(String arg0, Map result) {
+    public void writeFile(String arg0, Map result) throws IOException {
+        AceDataset ace = AceParser.parse(JSONAdapter.toJSON(result));
+        write(new File(arg0), ace);
+    }
+
+    /**
+     * DSSAT Soil Data Output method
+     *
+     * @param outDir the directory to ouput the translated files.
+     * @param ace the source ACE Dataset
+     * @param components subcomponents to translate
+     *
+     * @return the list of generated files
+     */
+//    @Override
+    public List<File> write(File outDir, AceDataset ace, AceBaseComponentType... components) throws IOException {
+
+        List<File> ret = new ArrayList<File>();
+        Map<String, String> comments = new HashMap();
+        Map<String, List<AceSoil>> soilGroup = groupingSoilData(ace, comments);
+        String path = revisePath(outDir);
+
+        for (String fileName : soilGroup.keySet()) {
+            File newFile = writeFile(path, soilGroup.get(fileName), comments);
+            if (newFile != null) {
+                ret.add(newFile);
+            }
+        }
+        return ret;
+    }
+
+    /**
+     * Group the soil site data
+     *
+     * The soil data in the same group must contain same first two letters in
+     * the SOIL_ID
+     *
+     * @param ace the ACE data set
+     * @param commnets will record the comments related with soil site during grouping process
+     *
+     * @return the map of grouped soil data
+     */
+    protected Map<String, List<AceSoil>> groupingSoilData(AceDataset ace, Map<String, String> commnets) throws IOException {
+        Map<String, List<AceSoil>> soilGroup = new HashMap();
+        List<AceExperiment> exps = ace.getExperiments();
+
+        if (exps.isEmpty()) {
+            for (AceSoil soil : ace.getSoils()) {
+                setGroup(soilGroup, soil);
+            }
+        } else {
+            for (AceExperiment exp : exps) {
+                AceSoil soil = exp.getSoil();
+                if (soil != null) {
+                    setGroup(soilGroup, soil);
+
+                    String soil_id = soil.getValueOr("soil_id", "");
+                    if (commnets.containsKey(soil_id)) {
+                        commnets.put(soil_id, commnets.get(soil_id) + "," + exp.getValueOr("exname", "N/A"));
+                    } else {
+                        commnets.put(soil_id, exp.getValueOr("exname", "N/A"));
+                    }
+                }
+            }
+        }
+        return soilGroup;
+    }
+
+    private void setGroup(Map<String, List<AceSoil>> soilGroup, AceSoil soil) throws IOException {
+        String soil_id = soil.getValueOr("soil_id", "");
+        String fileName;
+        if (soil_id.length() < 2) {
+            fileName = "";
+        } else {
+            fileName = soil_id.substring(0, 2);
+        }
+
+        if (soilGroup.containsKey(fileName)) {
+            soilGroup.get(fileName).add(soil);
+        } else {
+            ArrayList<AceSoil> arr = new ArrayList();
+            arr.add(soil);
+            soilGroup.put(fileName, arr);
+        }
+    }
+
+    /**
+     * DSSAT Soil Data Output method
+     *
+     * All the soil site data will be output into one file, which means all the
+     * site should have the same first two letters in the SOIL_ID
+     *
+     * @param arg0 file output path
+     * @param soils data holder object
+     * @param comments the experiment information related with soil site, used
+     * for output comments
+     *
+     * @return the generated soil file
+     */
+    public File writeFile(String arg0, List<AceSoil> soils, Map<String, String> comments) {
 
         // Initial variables
-//        ArrayList soilSites;                            // Soil site data array
-        HashMap soilSite;                       // Data holder for one site of soil data
-        ArrayList<Map> soilSistes;
-        ArrayList soilRecords;                          // Soil layer data array
-        HashMap soilRecord;                     // Data holder for one layer data
+        File ret = null;
+        AceSoil soilSite;                       // Data holder for one site of soil data
+        AceRecordCollection soilLayers;                          // Soil layer data array
+        AceRecord soilLayer;                     // Data holder for one layer data
         BufferedWriter bwS;                             // output object
         StringBuilder sbTitle = new StringBuilder();
         StringBuilder sbSites = new StringBuilder();
@@ -44,28 +152,23 @@ public class DssatSoilOutput extends DssatCommonOutput {
         StringBuilder sbLyrP2 = new StringBuilder();    // output string for second part of layer data
         boolean p2Flg;
         String[] p2Ids = {"slpx", "slpt", "slpo", "caco3", "slal", "slfe", "slmn", "slbs", "slpa", "slpb", "slke", "slmg", "slna", "slsu", "slec", "slca"};
-        String layerKey = "soilLayer";  // P.S. the key name might change
+        if (comments == null) {
+            comments = new HashMap();
+        }
 
         try {
 
             // Set default value for missing data
             setDefVal();
 
-            soilSistes = getObjectOr(result, "soils", new ArrayList());
-            if (soilSistes.isEmpty()) {
-                soilSistes.add(result);
+            if (soils.isEmpty()) {
+                return ret;
             }
-
-            Map expData = soilSistes.get(0);
-            soilSite = (HashMap) getObjectOr(expData, "soil", new HashMap());
-            if (soilSite.isEmpty()) {
-                return;
-            }
-//            decompressData(soilSites);
+            soilSite = soils.get(0);
 
             // Initial BufferedWriter
             // Get File name
-            String soilId = getObjectOr(soilSite, "soil_id", "");
+            String soilId = soilSite.getValueOr("soil_id", "");
             String fileName;
             if (soilId.equals("")) {
                 fileName = "soil.SOL";
@@ -79,6 +182,7 @@ public class DssatSoilOutput extends DssatCommonOutput {
             }
             arg0 = revisePath(arg0);
             outputFile = new File(arg0 + fileName);
+            ret = outputFile;
 //                boolean existFlg = outputFile.exists();
             bwS = new BufferedWriter(new FileWriter(outputFile));
 
@@ -86,21 +190,20 @@ public class DssatSoilOutput extends DssatCommonOutput {
             sbTitle.append("!This soil file is created by DSSAT translator tool on ").append(Calendar.getInstance().getTime()).append(".\r\n");
             sbTitle.append("*SOILS: ");
 
-            for (int i = 0; i < soilSistes.size(); i++) {
+            for (int i = 0; i < soils.size(); i++) {
 
-                expData = soilSistes.get(i);
-                soilSite = (HashMap) getObjectOr(expData, "soil", new HashMap());
+                soilSite = soils.get(i);
                 sbError = new StringBuilder();
                 sbData = new StringBuilder();
 
                 // Output Soil File
                 // Titel Section
-                String sl_notes = getObjectOr((HashMap) soilSite, "sl_notes", defValBlank);
+                String sl_notes = soilSite.getValueOr("sl_notes", defValBlank);
                 if (!sl_notes.equals(defValBlank)) {
                     sbTitle.append(sl_notes).append("; ");
                 }
-                sbData.append("!The ACE ID is ").append(getValueOr(expData, "id", "N/A")).append(".\r\n");
-                sbData.append("!This soil data is used for the experiment of ").append(getValueOr(expData, "exname", "N/A")).append(".\r\n!\r\n");
+                sbData.append("!The ACE ID is ").append(soilSite.getId()).append(".\r\n");
+                sbData.append("!This soil data is used for the experiment of ").append(getValueOr(comments, soilSite.getValueOr("soil_id", ""), "N/A")).append(".\r\n!\r\n");
 
                 // Site Info Section
                 String soil_id = getSoilID(soilSite);
@@ -112,16 +215,16 @@ public class DssatSoilOutput extends DssatCommonOutput {
                 sbData.append(String.format("*%1$-10s  %2$-11s %3$-5s %4$5s %5$s\r\n",
                         soil_id,
                         formatStr(11, soilSite, "sl_source", defValC),
-                        formatStr(5, transSltx(getValueOr(soilSite, "sltx", defValC)), "sltx"),
+                        formatStr(5, transSltx(soilSite.getValueOr("sltx", defValC)), "sltx"),
                         formatNumStr(5, soilSite, "sldp", defValR),
-                        getObjectOr(soilSite, "soil_name", defValC).toString()));
+                        soilSite.getValueOr("soil_name", defValC).toString()));
                 sbData.append("@SITE        COUNTRY          LAT     LONG SCS FAMILY\r\n");
                 sbData.append(String.format(" %1$-11s %2$-11s %3$9s%4$8s %5$s\r\n",
                         formatStr(11, soilSite, "sl_loc_3", defValC),
                         formatStr(11, soilSite, "sl_loc_1", defValC),
                         formatNumStr(8, soilSite, "soil_lat", defValR), // P.S. Definition changed 9 -> 10 (06/24)
                         formatNumStr(8, soilSite, "soil_long", defValR), // P.S. Definition changed 9 -> 8  (06/24)
-                        getObjectOr(soilSite, "classification", defValC).toString()));
+                        soilSite.getValueOr("classification", defValC).toString()));
                 sbData.append("@ SCOM  SALB  SLU1  SLDR  SLRO  SLNF  SLPF  SMHB  SMPX  SMKE\r\n");
 //                if (getObjectOr(soilSite, "slnf", "").equals("")) {
 //                    sbError.append("! Warning: missing data : [slnf], and will automatically use default value '1'\r\n");
@@ -130,85 +233,76 @@ public class DssatSoilOutput extends DssatCommonOutput {
 //                    sbError.append("! Warning: missing data : [slpf], and will automatically use default value '0.92'\r\n");
 //                }
                 sbData.append(String.format(" %1$5s %2$5s %3$5s %4$5s %5$5s %6$5s %7$5s %8$5s %9$5s %10$5s\r\n",
-                        getObjectOr(soilSite, "sscol", defValC).toString(),
+                        soilSite.getValueOr("sscol", defValC).toString(),
                         formatNumStr(5, soilSite, "salb", defValR),
                         formatNumStr(5, soilSite, "slu1", defValR),
                         formatNumStr(5, soilSite, "sldr", defValR),
                         formatNumStr(5, soilSite, "slro", defValR),
                         formatNumStr(5, soilSite, "slnf", defValR), // P.S. Remove default value as '1'
                         formatNumStr(5, soilSite, "slpf", defValR), // P.S. Remove default value as '0.92'
-                        getObjectOr(soilSite, "smhb", defValC).toString(),
-                        getObjectOr(soilSite, "smpx", defValC).toString(),
-                        getObjectOr(soilSite, "smke", defValC).toString()));
+                        soilSite.getValueOr("smhb", defValC).toString(),
+                        soilSite.getValueOr("smpx", defValC).toString(),
+                        soilSite.getValueOr("smke", defValC).toString()));
 
                 // Soil Layer data section
-                soilRecords = (ArrayList) getObjectOr(soilSite, layerKey, new ArrayList());
-
+                soilLayers = soilSite.getSoilLayers();
                 // part one
                 sbData.append("@  SLB  SLMH  SLLL  SDUL  SSAT  SRGF  SSKS  SBDM  SLOC  SLCL  SLSI  SLCF  SLNI  SLHW  SLHB  SCEC  SADC\r\n");
                 // part two
-                // Get first site record
-                HashMap fstRecord = new HashMap();
-                if (!soilRecords.isEmpty()) {
-                    fstRecord = (HashMap) soilRecords.get(0);
-                }
-
-                // Check if there is 2nd part of layer data for output
+                sbLyrP2.append("@  SLB  SLPX  SLPT  SLPO CACO3  SLAL  SLFE  SLMN  SLBS  SLPA  SLPB  SLKE  SLMG  SLNA  SLSU  SLEC  SLCA\r\n");
                 p2Flg = false;
-                for (int j = 0; j < p2Ids.length; j++) {
-                    if (!getObjectOr(fstRecord, p2Ids[j], "").toString().equals("")) {
-                        p2Flg = true;
-                        break;
-                    }
-                }
-                if (p2Flg) {
-                    sbLyrP2.append("@  SLB  SLPX  SLPT  SLPO CACO3  SLAL  SLFE  SLMN  SLBS  SLPA  SLPB  SLKE  SLMG  SLNA  SLSU  SLEC  SLCA\r\n");
-                }
 
                 // Loop for laryer data
-                for (int j = 0; j < soilRecords.size(); j++) {
-
-                    soilRecord = (HashMap) soilRecords.get(j);
+                for (Iterator<AceRecord> it = soilLayers.iterator(); it.hasNext();) {
+                    soilLayer = it.next();
                     // part one
                     sbData.append(String.format(" %1$5s %2$5s %3$5s %4$5s %5$5s %6$5s %7$5s %8$5s %9$5s %10$5s %11$5s %12$5s %13$5s %14$5s %15$5s %16$5s %17$5s\r\n",
-                            formatNumStr(5, soilRecord, "sllb", defValR),
-                            getObjectOr(soilRecord, "slmh", defValC).toString(),
-                            formatNumStr(5, soilRecord, "slll", defValR),
-                            formatNumStr(5, soilRecord, "sldul", defValR),
-                            formatNumStr(5, soilRecord, "slsat", defValR),
-                            formatNumStr(5, soilRecord, "slrgf", defValR),
-                            formatNumStr(5, soilRecord, "sksat", defValR),
-                            formatNumStr(5, soilRecord, "slbdm", defValR),
-                            formatNumStr(5, soilRecord, "sloc", defValR),
-                            formatNumStr(5, soilRecord, "slcly", defValR),
-                            formatNumStr(5, soilRecord, "slsil", defValR),
-                            formatNumStr(5, soilRecord, "slcf", defValR),
-                            formatNumStr(5, soilRecord, "slni", defValR),
-                            formatNumStr(5, soilRecord, "slphw", defValR),
-                            formatNumStr(5, soilRecord, "slphb", defValR),
-                            formatNumStr(5, soilRecord, "slcec", defValR),
-                            formatNumStr(5, soilRecord, "sladc", defValR)));
+                            formatNumStr(5, soilLayer, "sllb", defValR),
+                            soilLayer.getValueOr("slmh", defValC),
+                            formatNumStr(5, soilLayer, "slll", defValR),
+                            formatNumStr(5, soilLayer, "sldul", defValR),
+                            formatNumStr(5, soilLayer, "slsat", defValR),
+                            formatNumStr(5, soilLayer, "slrgf", defValR),
+                            formatNumStr(5, soilLayer, "sksat", defValR),
+                            formatNumStr(5, soilLayer, "slbdm", defValR),
+                            formatNumStr(5, soilLayer, "sloc", defValR),
+                            formatNumStr(5, soilLayer, "slcly", defValR),
+                            formatNumStr(5, soilLayer, "slsil", defValR),
+                            formatNumStr(5, soilLayer, "slcf", defValR),
+                            formatNumStr(5, soilLayer, "slni", defValR),
+                            formatNumStr(5, soilLayer, "slphw", defValR),
+                            formatNumStr(5, soilLayer, "slphb", defValR),
+                            formatNumStr(5, soilLayer, "slcec", defValR),
+                            formatNumStr(5, soilLayer, "sladc", defValR)));
 
                     // part two
-                    if (p2Flg) {
-                        sbLyrP2.append(String.format(" %1$5s %2$5s %3$5s %4$5s %5$5s %6$5s %7$5s %8$5s %9$5s %10$5s %11$5s %12$5s %13$5s %14$5s %15$5s %16$5s %17$5s\r\n",
-                                formatNumStr(5, soilRecord, "sllb", defValR),
-                                formatNumStr(5, soilRecord, "slpx", defValR),
-                                formatNumStr(5, soilRecord, "slpt", defValR),
-                                formatNumStr(5, soilRecord, "slpo", defValR),
-                                formatNumStr(5, soilRecord, "caco3", defValR), // P.S. Different with document (DSSAT vol2.pdf)
-                                formatNumStr(5, soilRecord, "slal", defValR),
-                                formatNumStr(5, soilRecord, "slfe", defValR),
-                                formatNumStr(5, soilRecord, "slmn", defValR),
-                                formatNumStr(5, soilRecord, "slbs", defValR),
-                                formatNumStr(5, soilRecord, "slpa", defValR),
-                                formatNumStr(5, soilRecord, "slpb", defValR),
-                                formatNumStr(5, soilRecord, "slke", defValR),
-                                formatNumStr(5, soilRecord, "slmg", defValR),
-                                formatNumStr(5, soilRecord, "slna", defValR),
-                                formatNumStr(5, soilRecord, "slsu", defValR),
-                                formatNumStr(5, soilRecord, "slec", defValR),
-                                formatNumStr(5, soilRecord, "slca", defValR)));
+                    sbLyrP2.append(String.format(" %1$5s %2$5s %3$5s %4$5s %5$5s %6$5s %7$5s %8$5s %9$5s %10$5s %11$5s %12$5s %13$5s %14$5s %15$5s %16$5s %17$5s\r\n",
+                            formatNumStr(5, soilLayer, "sllb", defValR),
+                            formatNumStr(5, soilLayer, "slpx", defValR),
+                            formatNumStr(5, soilLayer, "slpt", defValR),
+                            formatNumStr(5, soilLayer, "slpo", defValR),
+                            formatNumStr(5, soilLayer, "caco3", defValR), // P.S. Different with document (DSSAT vol2.pdf)
+                            formatNumStr(5, soilLayer, "slal", defValR),
+                            formatNumStr(5, soilLayer, "slfe", defValR),
+                            formatNumStr(5, soilLayer, "slmn", defValR),
+                            formatNumStr(5, soilLayer, "slbs", defValR),
+                            formatNumStr(5, soilLayer, "slpa", defValR),
+                            formatNumStr(5, soilLayer, "slpb", defValR),
+                            formatNumStr(5, soilLayer, "slke", defValR),
+                            formatNumStr(5, soilLayer, "slmg", defValR),
+                            formatNumStr(5, soilLayer, "slna", defValR),
+                            formatNumStr(5, soilLayer, "slsu", defValR),
+                            formatNumStr(5, soilLayer, "slec", defValR),
+                            formatNumStr(5, soilLayer, "slca", defValR)));
+
+                    // Check if there is 2nd part of layer data for output
+                    if (!p2Flg) {
+                        for (int j = 0; j < p2Ids.length; j++) {
+                            if (!soilLayer.getValueOr(p2Ids[j], "").equals("")) {
+                                p2Flg = true;
+                                break;
+                            }
+                        }
                     }
                 }
 
@@ -234,5 +328,6 @@ public class DssatSoilOutput extends DssatCommonOutput {
         } catch (IOException e) {
             LOG.error(DssatCommonOutput.getStackTrace(e));
         }
+        return ret;
     }
 }

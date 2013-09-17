@@ -37,7 +37,7 @@ public class DssatTFileOutput extends DssatCommonOutput {
         StringBuilder sbData = new StringBuilder();             // construct the data info in the output
         HashMap<String, String> altTitleList = new HashMap();   // Define alternative fields for the necessary observation data fields; key is necessary field
         // P.S. Add alternative fields here
-        HashMap titleOutput;                              // contain output data field id
+        HashMap<String, String> titleOutput;                              // contain output data field id
         DssatObservedData obvDataList = new DssatObservedData();    // Varibale list definition
 
         try {
@@ -96,7 +96,7 @@ public class DssatTFileOutput extends DssatCommonOutput {
                 record = observeRecords.get(i);
 
                 // Check if which field is available
-                for (Object key : record.keySet()) {
+                for (String key : record.keySet()) {
                     // check which optional data is exist, if not, remove from map
                     if (obvDataList.isTimeSeriesData(key)) {
                         titleOutput.put(key, key);

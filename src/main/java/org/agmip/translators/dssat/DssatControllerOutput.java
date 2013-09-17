@@ -273,7 +273,7 @@ public class DssatControllerOutput extends DssatCommonOutput {
                 }
 //                id = id.substring(0, 2);
                 swData = soilData;
-                expData.put("soil_id", id);
+//                expData.put("soil_id", id);
             } else {
                 //            id = getObjectOr(expData, "wst_id", "");
                 //            id = getWthFileName(getObjectOr(expData, "weather", new HashMap()));

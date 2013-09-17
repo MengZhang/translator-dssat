@@ -1,6 +1,7 @@
 package org.agmip.translators.dssat;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
@@ -10,6 +11,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import org.agmip.ace.AceComponent;
+import org.agmip.ace.AceSoil;
 import org.agmip.ace.LookupCodes;
 import org.agmip.core.types.TranslatorOutput;
 import static org.agmip.util.MapUtil.*;
@@ -74,10 +77,35 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
      * @param defVal the default return value when error happens
      * @return formated string of number
      */
-    protected String formatNumStr(int bits, HashMap m, Object key, String defVal) {
+    protected String formatNumStr(int bits, HashMap m, String key, String defVal) {
+        return formatNumStr(bits, getObjectOr(m, key, defVal), key, defVal);
+    }
+
+    /**
+     * Format the number with maximum length and type
+     *
+     * @param bits Maximum length of the output string
+     * @param m the experiment data holder
+     * @param key the key of field in the map
+     * @param defVal the default return value when error happens
+     * @return formated string of number
+     */
+    protected String formatNumStr(int bits, AceComponent m, String key, String defVal) throws IOException {
+        return formatNumStr(bits, m.getValueOr(key, defVal), key, defVal);
+    }
+
+    /**
+     * Format the number with maximum length and type
+     *
+     * @param bits Maximum length of the output string
+     * @param str the input number string
+     * @param key the key of field in the map
+     * @param defVal the default return value when error happens
+     * @return formated string of number
+     */
+    protected String formatNumStr(int bits, String str, String key, String defVal) {
 
         String ret = "";
-        String str = getObjectOr(m, key, defVal);
         String[] inputStr = str.split("\\.");
         if (str.trim().equals("")) {
             return String.format("%" + bits + "s", defVal);
@@ -108,6 +136,21 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
     protected String formatStr(int bits, HashMap m, Object key, String defVal) {
 
         String ret = getObjectOr(m, key, defVal).trim();
+        return formatStr(bits, ret, key);
+    }
+
+    /**
+     * Format the output string with maximum length
+     *
+     * @param bits Maximum length of the output string
+     * @param m the experiment data holder
+     * @param key the key of field in the map
+     * @param defVal the default return value when error happens
+     * @return formated string of number
+     */
+    protected String formatStr(int bits, AceComponent m, String key, String defVal) throws IOException {
+
+        String ret = m.getValueOr(key, defVal).trim();
         return formatStr(bits, ret, key);
     }
 
@@ -298,14 +341,33 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
                 path += File.separator;
             }
             File f = new File(path);
-            if (f.isFile()) {
-                f = f.getParentFile();
-            }
             if (f != null && !f.exists()) {
                 f.mkdirs();
             }
+            if (!f.isDirectory()) {
+                f = f.getParentFile();
+                path = f.getPath();
+            }
         }
         return path;
+    }
+    
+    /**
+     * Revise output path
+     *
+     * @param dir the output directory
+     * @return revised path
+     */
+    public static String revisePath(File dir) {
+        if (dir == null) {
+            return "";
+        } else if (!dir.exists()) {
+            dir.mkdirs();
+        }
+        if (!dir.isDirectory() && !dir.getPath().equals("")) {
+            dir = dir.getParentFile();
+        }
+        return dir.getPath();
     }
 
     /**
@@ -423,6 +485,25 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
      * @return the weather file name
      */
     protected String getSoilID(HashMap data) {
+        return soilHelper.getSoilID(data);
+//        String ret = getObjectOr(data, "soil_id", "");
+//        ret = ret.trim();
+//        if (ret.equals("")) {
+//            return ret;
+//        }
+//        while (ret.length() < 8) {
+//            ret += "_";
+//        }
+//        return ret;
+    }
+
+    /**
+     * Get the soil_id with legal length (8~10 bits), filled with "_"
+     *
+     * @param data experiment data holder or weather data holder
+     * @return the weather file name
+     */
+    protected String getSoilID(AceSoil data) throws IOException {
         return soilHelper.getSoilID(data);
 //        String ret = getObjectOr(data, "soil_id", "");
 //        ret = ret.trim();
