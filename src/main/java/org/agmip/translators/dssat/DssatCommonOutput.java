@@ -13,9 +13,11 @@ import java.util.Map;
 import java.util.Set;
 import org.agmip.ace.AceComponent;
 import org.agmip.ace.AceSoil;
+import org.agmip.ace.AceWeather;
 import org.agmip.ace.LookupCodes;
 import org.agmip.core.types.TranslatorOutput;
-import static org.agmip.util.MapUtil.*;
+import org.agmip.util.MapUtil;
+import static org.agmip.util.MapUtil.getObjectOr;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -148,9 +150,9 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
      * @param defVal the default return value when error happens
      * @return formated string of number
      */
-    protected String formatStr(int bits, AceComponent m, String key, String defVal) throws IOException {
+    protected String formatStr(int bits, AceComponent m, String key, String defVal) {
 
-        String ret = m.getValueOr(key, defVal).trim();
+        String ret = getValueOr(m, key, defVal).trim();
         return formatStr(bits, ret, key);
     }
 
@@ -461,15 +463,15 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
      * @param data experiment data holder or weather data holder
      * @return the weather file name
      */
-    protected String getWthFileName(HashMap data) {
+    protected String getWthFileName(Object data) throws IOException {
 
 //        String agmipFileHack = getValueOr(wthFile, "wst_name", "");
 //        if (agmipFileHack.length() == 8) {
 //            return agmipFileHack;
 //        }
-        String ret = getObjectOr(data, "wst_id", "").toString();
-        if (ret.equals("") || ret.length() > 8) {
-            ret = wthHelper.createWthFileName(getObjectOr(data, "weather", data));
+        String ret = getValueOr(data, "wst_id", "");
+        if (ret.equals("") || ret.length() > 8 || ret.length() <= 4) {
+            ret = wthHelper.createWthFileName(data);
             if (ret.equals("")) {
                 ret = "AGMP";
             }
@@ -484,26 +486,7 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
      * @param data experiment data holder or weather data holder
      * @return the weather file name
      */
-    protected String getSoilID(HashMap data) {
-        return soilHelper.getSoilID(data);
-//        String ret = getObjectOr(data, "soil_id", "");
-//        ret = ret.trim();
-//        if (ret.equals("")) {
-//            return ret;
-//        }
-//        while (ret.length() < 8) {
-//            ret += "_";
-//        }
-//        return ret;
-    }
-
-    /**
-     * Get the soil_id with legal length (8~10 bits), filled with "_"
-     *
-     * @param data experiment data holder or weather data holder
-     * @return the weather file name
-     */
-    protected String getSoilID(AceSoil data) throws IOException {
+    protected String getSoilID(Object data) {
         return soilHelper.getSoilID(data);
 //        String ret = getObjectOr(data, "soil_id", "");
 //        ret = ret.trim();
@@ -537,6 +520,9 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
         return result.toString();
     }
 
+    /**
+     * To support different amount of weather variables in each day
+     */
     protected class HeaderArrayList<E> extends ArrayList<E> {
 
         private HashSet<E> items = new HashSet();
@@ -594,5 +580,19 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
         String ret = LookupCodes.lookupCode("sltx", sltx, "Alternate").toUpperCase();
         LOG.debug("{} is translated to {}", sltx, ret);
         return ret;
+    }
+
+    protected static String getValueOr(Object data, String key, String orVal) {
+        if (data instanceof Map) {
+            return MapUtil.getValueOr((Map) data, key, orVal);
+        } else if (data instanceof AceComponent) {
+            try {
+                return ((AceComponent) data).getValueOr(key, orVal);
+            } catch (IOException e) {
+                return orVal;
+            }
+        } else {
+            return orVal;
+        }
     }
 }

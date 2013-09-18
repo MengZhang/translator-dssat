@@ -18,7 +18,6 @@ import org.agmip.ace.AceRecordCollection;
 import org.agmip.ace.AceSoil;
 import org.agmip.ace.io.AceParser;
 import org.agmip.util.JSONAdapter;
-import static org.agmip.util.MapUtil.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,7 +53,7 @@ public class DssatSoilOutput extends DssatCommonOutput {
      * @return the list of generated files
      */
 //    @Override
-    public List<File> write(File outDir, AceDataset ace, AceBaseComponentType... components) throws IOException {
+    public List<File> write(File outDir, AceDataset ace, AceBaseComponentType... components) {
 
         List<File> ret = new ArrayList<File>();
         Map<String, String> comments = new HashMap();
@@ -81,7 +80,7 @@ public class DssatSoilOutput extends DssatCommonOutput {
      *
      * @return the map of grouped soil data
      */
-    protected Map<String, List<AceSoil>> groupingSoilData(AceDataset ace, Map<String, String> commnets) throws IOException {
+    protected Map<String, List<AceSoil>> groupingSoilData(AceDataset ace, Map<String, String> commnets) {
         Map<String, List<AceSoil>> soilGroup = new HashMap();
         List<AceExperiment> exps = ace.getExperiments();
 
@@ -95,11 +94,11 @@ public class DssatSoilOutput extends DssatCommonOutput {
                 if (soil != null) {
                     setGroup(soilGroup, soil);
 
-                    String soil_id = soil.getValueOr("soil_id", "");
+                    String soil_id = getValueOr(soil, "soil_id", "");
                     if (commnets.containsKey(soil_id)) {
-                        commnets.put(soil_id, commnets.get(soil_id) + "," + exp.getValueOr("exname", "N/A"));
+                        commnets.put(soil_id, commnets.get(soil_id) + "," + getValueOr(exp, "exname", "N/A"));
                     } else {
-                        commnets.put(soil_id, exp.getValueOr("exname", "N/A"));
+                        commnets.put(soil_id, getValueOr(exp, "exname", "N/A"));
                     }
                 }
             }
@@ -107,8 +106,8 @@ public class DssatSoilOutput extends DssatCommonOutput {
         return soilGroup;
     }
 
-    private void setGroup(Map<String, List<AceSoil>> soilGroup, AceSoil soil) throws IOException {
-        String soil_id = soil.getValueOr("soil_id", "");
+    private void setGroup(Map<String, List<AceSoil>> soilGroup, AceSoil soil) {
+        String soil_id = getValueOr(soil, "soil_id", "");
         String fileName;
         if (soil_id.length() < 2) {
             fileName = "";
@@ -141,7 +140,6 @@ public class DssatSoilOutput extends DssatCommonOutput {
     public File writeFile(String arg0, List<AceSoil> soils, Map<String, String> comments) {
 
         // Initial variables
-        File ret = null;
         AceSoil soilSite;                       // Data holder for one site of soil data
         AceRecordCollection soilLayers;                          // Soil layer data array
         AceRecord soilLayer;                     // Data holder for one layer data
@@ -162,7 +160,7 @@ public class DssatSoilOutput extends DssatCommonOutput {
             setDefVal();
 
             if (soils.isEmpty()) {
-                return ret;
+                return outputFile;
             }
             soilSite = soils.get(0);
 
@@ -182,7 +180,6 @@ public class DssatSoilOutput extends DssatCommonOutput {
             }
             arg0 = revisePath(arg0);
             outputFile = new File(arg0 + fileName);
-            ret = outputFile;
 //                boolean existFlg = outputFile.exists();
             bwS = new BufferedWriter(new FileWriter(outputFile));
 
@@ -328,6 +325,6 @@ public class DssatSoilOutput extends DssatCommonOutput {
         } catch (IOException e) {
             LOG.error(DssatCommonOutput.getStackTrace(e));
         }
-        return ret;
+        return outputFile;
     }
 }

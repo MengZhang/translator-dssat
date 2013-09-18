@@ -1,10 +1,16 @@
 package org.agmip.translators.dssat;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
-import static org.agmip.util.MapUtil.*;
+import org.agmip.ace.AceRecord;
+import org.agmip.ace.AceRecordCollection;
+import org.agmip.ace.AceWeather;
+import static org.agmip.translators.dssat.DssatCommonOutput.getValueOr;
+import org.agmip.util.MapUtil;
 
 /**
  *
@@ -23,10 +29,12 @@ public class DssatWthFileHelper {
      * @param wthData weather data holder
      * @return the weather file name
      */
-    public String createWthFileName(Map wthData) {
+    public String createWthFileName(Object wthData) throws IOException {
 
-        String hash = getObjectOr(wthData, "wst_id", "").toString();
-
+        if (wthData instanceof Map) {
+            wthData = MapUtil.getObjectOr((Map) wthData, "weather", wthData);
+        }
+        String hash = getValueOr(wthData, "wst_id", "").toString();
         if (hashToName.containsKey(hash)) {
             return hashToName.get(hash);
         } else {
@@ -60,7 +68,7 @@ public class DssatWthFileHelper {
      * @param wthData Weather data holder
      * @return
      */
-    private String getWthInsiCodeOr(Map wthData) {
+    private String getWthInsiCodeOr(Object wthData) throws IOException {
         String insiName = getWthInsiCode(wthData);
         if (insiName.equals("")) {
             return getNextDefName();
@@ -84,12 +92,12 @@ public class DssatWthFileHelper {
      * @param wthData weather data holder
      * @return the 4-bit institute code
      */
-    public static String getWthInsiCode(Map wthData) {
+    public static String getWthInsiCode(Object wthData) throws IOException {
         String wst_name = getValueOr(wthData, "wst_name", "");
         if (wst_name.matches("(\\w{4})|(\\w{8})")) {
             return wst_name;
         }
-        
+
         String wst_id = getValueOr(wthData, "wst_id", "");
         if (wst_id.matches("(\\w{4})|(\\w{8})")) {
             return wst_id;
@@ -110,28 +118,49 @@ public class DssatWthFileHelper {
      * @param wthData weather data holder
      * @return the 4-bit number for year and duration
      */
-    public static String getWthYearDuration(Map wthData) {
+    public static String getWthYearDuration(Object wthData) throws IOException {
         String yearDur = "";
-        ArrayList<Map> wthRecords = (ArrayList) getObjectOr(wthData, "dailyWeather", new ArrayList());
-        if (!wthRecords.isEmpty()) {
-            // Get the year of starting date and end date
-            String startYear = getValueOr((wthRecords.get(0)), "w_date", "    ").substring(2, 4).trim();
-            String endYear = getValueOr((wthRecords.get(wthRecords.size() - 1)), "w_date", "    ").substring(2, 4).trim();
-            // If not available, do not show year and duration in the file name
-            if (!startYear.equals("") && !endYear.equals("")) {
-                yearDur += startYear;
-                try {
-                    int iStartYear = Integer.parseInt(startYear);
-                    int iEndYear = Integer.parseInt(endYear);
-                    iStartYear += iStartYear <= 15 ? 2000 : 1900; // P.S. 2015 is the cross year for the current version
-                    iEndYear += iEndYear <= 15 ? 2000 : 1900; // P.S. 2015 is the cross year for the current version
-                    int duration = iEndYear - iStartYear + 1;
-                    // P.S. Currently the system only support the maximum of 99 years for duration
-                    duration = duration > 99 ? 99 : duration;
-                    yearDur += String.format("%02d", duration);
-                } catch (Exception e) {
-                    yearDur += "01";    // Default duration uses 01 (minimum value)
+        if (wthData instanceof Map) {
+            ArrayList<Map> wthRecords = (ArrayList) MapUtil.getObjectOr((Map) wthData, "dailyWeather", new ArrayList());
+            if (!wthRecords.isEmpty()) {
+                // Get the year of starting date and end date
+                String startYear = MapUtil.getValueOr((wthRecords.get(0)), "w_date", "    ").substring(2, 4).trim();
+                String endYear = MapUtil.getValueOr((wthRecords.get(wthRecords.size() - 1)), "w_date", "    ").substring(2, 4).trim();
+                yearDur = getWthYearDuration(yearDur, startYear, endYear);
+            }
+        } else if (wthData instanceof AceWeather) {
+            AceRecordCollection dailys = ((AceWeather)wthData).getDailyWeather();
+            Iterator<AceRecord> it = dailys.iterator();
+            if (it.hasNext()) {
+                AceRecord daily = it.next();
+                String startYear = daily.getValueOr("w_date", "    ").substring(2, 4).trim();
+                while(it.hasNext()) {
+                    daily = it.next();
                 }
+                String endYear = daily.getValueOr("w_date", "    ").substring(2, 4).trim();
+                yearDur = getWthYearDuration(yearDur, startYear, endYear);
+            }
+        }
+
+        return yearDur;
+    }
+
+    private static String getWthYearDuration(String yearDur, String startYear, String endYear) {
+
+        // If not available, do not show year and duration in the file name
+        if (!startYear.equals("") && !endYear.equals("")) {
+            yearDur += startYear;
+            try {
+                int iStartYear = Integer.parseInt(startYear);
+                int iEndYear = Integer.parseInt(endYear);
+                iStartYear += iStartYear <= 15 ? 2000 : 1900; // P.S. 2015 is the cross year for the current version
+                iEndYear += iEndYear <= 15 ? 2000 : 1900; // P.S. 2015 is the cross year for the current version
+                int duration = iEndYear - iStartYear + 1;
+                // P.S. Currently the system only support the maximum of 99 years for duration
+                duration = duration > 99 ? 99 : duration;
+                yearDur += String.format("%02d", duration);
+            } catch (Exception e) {
+                yearDur += "01";    // Default duration uses 01 (minimum value)
             }
         }
 

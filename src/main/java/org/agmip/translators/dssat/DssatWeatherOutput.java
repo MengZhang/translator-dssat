@@ -6,8 +6,18 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import org.agmip.ace.AceBaseComponentType;
+import org.agmip.ace.AceDataset;
+import org.agmip.ace.AceRecord;
+import org.agmip.ace.AceRecordCollection;
+import org.agmip.ace.AceWeather;
+import org.agmip.ace.io.AceParser;
+import org.agmip.util.JSONAdapter;
+import org.agmip.util.MapUtil;
 import static org.agmip.util.MapUtil.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,12 +39,57 @@ public class DssatWeatherOutput extends DssatCommonOutput {
      * @param result data holder object
      */
     @Override
-    public void writeFile(String arg0, Map result) {
+    public void writeFile(String arg0, Map result) throws IOException {
+        Map weathers;
+        if (!result.containsKey("weathers")) {
+            weathers = new HashMap();
+            ArrayList<Map> arr = new ArrayList();
+            arr.add(MapUtil.getObjectOr(result, "weather", result));
+            weathers.put("weathers", arr);
+        } else {
+            weathers = result;
+        }
+        AceDataset ace = AceParser.parse(JSONAdapter.toJSON(weathers));
+        write(new File(arg0), ace);
+    }
+
+    /**
+     * DSSAT Soil Data Output method
+     *
+     * @param outDir the directory to ouput the translated files.
+     * @param ace the source ACE Dataset
+     * @param components subcomponents to translate
+     *
+     * @return the list of generated files
+     */
+//    @Override
+    public List<File> write(File outDir, AceDataset ace, AceBaseComponentType... components) throws IOException {
+
+        List<File> ret = new ArrayList<File>();
+        String path = revisePath(outDir);
+
+        for (AceWeather wth : ace.getWeathers()) {
+            File newFile = writeFile(path, wth);
+            if (newFile != null) {
+                ret.add(newFile);
+            }
+        }
+        return ret;
+    }
+
+    /**
+     * DSSAT Weather Data Output method
+     *
+     * @param arg0 file output path
+     * @param wthFile data holder object
+     *
+     * @return the generated weather file
+     */
+    public File writeFile(String arg0, AceWeather wthFile) {
 
         // Initial variables
-        HashMap wthFile;                  // Data holder for whole weather data
-        ArrayList wthRecords;                   // Daily data array
-        HashMap wthRecord;                // Data holder for daily data
+        AceRecordCollection dailyWths;                   // Daily data array
+        AceRecord wthRecord;                // Data holder for daily data
         BufferedWriter bwW;                     // output object
         StringBuilder sbData = new StringBuilder();     // construct the data info in the output
         LinkedHashMap dailyVarHeaderMap = new LinkedHashMap();   // Define the mapping of daily data fields and header
@@ -43,7 +98,6 @@ public class DssatWeatherOutput extends DssatCommonOutput {
         dailyVarHeaderMap.put("pard", "PAR");
         dailyVarHeaderMap.put("vprsd", "VPRS");
         dailyVarHeaderMap.put("rhumd", "RHUM");
-        String dailyKey = "dailyWeather";  // P.S. the key name might change
         HeaderArrayList<String> dailyHeaders = new HeaderArrayList();
         StringBuilder[] dailyData;
 
@@ -52,22 +106,12 @@ public class DssatWeatherOutput extends DssatCommonOutput {
             // Set default value for missing data
             setDefVal();
 
-            // Get weather files
-            wthFile = (HashMap) getObjectOr(result, "weather", new HashMap());
-            if (wthFile.isEmpty()) {
-                return;
-            }
-//            decompressData(wthFiles);
-
             // Output all weather files
-            wthRecords = (ArrayList) getObjectOr(wthFile, dailyKey, new ArrayList());
+            dailyWths = wthFile.getDailyWeather();
 
             // Initial BufferedWriter
             // Get File name
-            String fileName = getValueOr(result, "wst_id", "");
-            if (fileName.equals("")) {
-                fileName = getWthFileName(wthFile);
-            }
+            String fileName = getWthFileName(wthFile);
             fileName += ".WTH";
             arg0 = revisePath(arg0);
             outputFile = new File(arg0 + fileName);
@@ -75,14 +119,14 @@ public class DssatWeatherOutput extends DssatCommonOutput {
 
             // Output Weather File
             // Titel Section
-            if (getObjectOr(wthFile, "wst_notes", ".AgMIP File").equals(".AgMIP File")) {
-                sbData.append(String.format("*WEATHER DATA : %1$s\r\n!Climate ID: %2$s\r\n", getObjectOr(wthFile, "wst_source", defValBlank).toString(), getValueOr(wthFile, "clim_id", "N/A")));
+            if (wthFile.getValueOr("wst_notes", ".AgMIP File").equals(".AgMIP File")) {
+                sbData.append(String.format("*WEATHER DATA : %1$s\r\n!Climate ID: %2$s\r\n", wthFile.getValueOr("wst_source", defValBlank), wthFile.getValueOr("clim_id", "N/A")));
             } else {
-                sbData.append(String.format("*WEATHER DATA : %1$s\r\n!Climate ID: %2$s\r\n", getObjectOr(wthFile, "wst_notes", defValBlank).toString(), getValueOr(wthFile, "clim_id", "N/A")));
+                sbData.append(String.format("*WEATHER DATA : %1$s\r\n!Climate ID: %2$s\r\n", wthFile.getValueOr("wst_notes", defValBlank), wthFile.getValueOr("clim_id", "N/A")));
             }
 
             // Weather Station Section
-            String wid = getObjectOr(wthFile, "wst_id", defValC);
+            String wid = wthFile.getValueOr("wst_id", defValC);
             if (wid.length() > 4) {
                 wid = wid.substring(0, 4);
             }
@@ -112,17 +156,17 @@ public class DssatWeatherOutput extends DssatCommonOutput {
             dailyHeaders.add("pard");
 
             // Output daily data
-            dailyData = new StringBuilder[wthRecords.size()];
-            for (int i = 0; i < wthRecords.size(); i++) {
-
-                wthRecord = (HashMap) wthRecords.get(i);
+            dailyData = new StringBuilder[dailyWths.size()];
+            int i = 0;
+            for (Iterator<AceRecord> it = dailyWths.iterator(); it.hasNext(); i++) {
+                wthRecord = it.next();
                 dailyData[i] = new StringBuilder();
                 dailyHeaders.seCurItems(wthRecord.keySet());
 
                 // if date is missing, jump the record
-                if (!getObjectOr(wthRecord, "w_date", "").toString().equals("")) {
+                if (!wthRecord.getValueOr("w_date", "").equals("")) {
                     //  Format handling for daily date
-                    dailyData[i].append(String.format("%1$5s", formatDateStr(getObjectOr(wthRecord, dailyHeaders.get(0), defValD))));
+                    dailyData[i].append(String.format("%1$5s", formatDateStr(wthRecord.getValueOr(dailyHeaders.get(0), defValD))));
 
                     // Output the registered variables
                     for (int j = 1; j < dailyHeaders.size(); j++) {
@@ -152,7 +196,7 @@ public class DssatWeatherOutput extends DssatCommonOutput {
 
             // Combine the daily data
             sbData.append("\r\n");
-            for (int i = 0; i < dailyData.length; i++) {
+            for (i = 0; i < dailyData.length; i++) {
                 dailyData[i].append("\r\n");
                 sbData.append(dailyData[i]);
                 dailyData[i] = null;
@@ -167,5 +211,6 @@ public class DssatWeatherOutput extends DssatCommonOutput {
         } catch (IOException e) {
             LOG.error(DssatCommonOutput.getStackTrace(e));
         }
+        return outputFile;
     }
 }
