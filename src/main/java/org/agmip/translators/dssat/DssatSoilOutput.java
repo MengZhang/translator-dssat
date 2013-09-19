@@ -7,9 +7,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.logging.Level;
 import org.agmip.ace.AceBaseComponentType;
 import org.agmip.ace.AceDataset;
 import org.agmip.ace.AceExperiment;
@@ -57,13 +60,13 @@ public class DssatSoilOutput extends DssatCommonOutput {
 
         List<File> ret = new ArrayList<File>();
         Map<String, String> comments = new HashMap();
-        Map<String, List<AceSoil>> soilGroup = groupingSoilData(ace, comments);
+        Map<String, Set<AceSoil>> soilGroup = groupingSoilData(ace, comments);
         String path = revisePath(outDir);
 
         for (String fileName : soilGroup.keySet()) {
-            File newFile = writeFile(path, soilGroup.get(fileName), comments);
-            if (newFile != null) {
-                ret.add(newFile);
+            writeFile(path, soilGroup.get(fileName), comments);
+            if (outputFile != null) {
+                ret.add(outputFile);
             }
         }
         return ret;
@@ -80,8 +83,8 @@ public class DssatSoilOutput extends DssatCommonOutput {
      *
      * @return the map of grouped soil data
      */
-    protected Map<String, List<AceSoil>> groupingSoilData(AceDataset ace, Map<String, String> commnets) {
-        Map<String, List<AceSoil>> soilGroup = new HashMap();
+    protected Map<String, Set<AceSoil>> groupingSoilData(AceDataset ace, Map<String, String> commnets) {
+        Map<String, Set<AceSoil>> soilGroup = new HashMap();
         List<AceExperiment> exps = ace.getExperiments();
 
         if (exps.isEmpty()) {
@@ -92,11 +95,15 @@ public class DssatSoilOutput extends DssatCommonOutput {
             for (AceExperiment exp : exps) {
                 AceSoil soil = exp.getSoil();
                 if (soil != null) {
+                    try {
+                        System.out.println(soil.keySet().toString());
+                    } catch (IOException ex) {
+                    }
                     setGroup(soilGroup, soil);
 
                     String soil_id = getValueOr(soil, "soil_id", "");
                     if (commnets.containsKey(soil_id)) {
-                        commnets.put(soil_id, commnets.get(soil_id) + "," + getValueOr(exp, "exname", "N/A"));
+                        commnets.put(soil_id, commnets.get(soil_id) + ", " + getValueOr(exp, "exname", "N/A"));
                     } else {
                         commnets.put(soil_id, getValueOr(exp, "exname", "N/A"));
                     }
@@ -106,7 +113,7 @@ public class DssatSoilOutput extends DssatCommonOutput {
         return soilGroup;
     }
 
-    private void setGroup(Map<String, List<AceSoil>> soilGroup, AceSoil soil) {
+    private void setGroup(Map<String, Set<AceSoil>> soilGroup, AceSoil soil) {
         String soil_id = getValueOr(soil, "soil_id", "");
         String fileName;
         if (soil_id.length() < 2) {
@@ -118,9 +125,9 @@ public class DssatSoilOutput extends DssatCommonOutput {
         if (soilGroup.containsKey(fileName)) {
             soilGroup.get(fileName).add(soil);
         } else {
-            ArrayList<AceSoil> arr = new ArrayList();
-            arr.add(soil);
-            soilGroup.put(fileName, arr);
+            HashSet<AceSoil> set = new HashSet();
+            set.add(soil);
+            soilGroup.put(fileName, set);
         }
     }
 
@@ -134,10 +141,8 @@ public class DssatSoilOutput extends DssatCommonOutput {
      * @param soils data holder object
      * @param comments the experiment information related with soil site, used
      * for output comments
-     *
-     * @return the generated soil file
      */
-    public File writeFile(String arg0, List<AceSoil> soils, Map<String, String> comments) {
+    public void writeFile(String arg0, Set<AceSoil> soilSet, Map<String, String> comments) {
 
         // Initial variables
         AceSoil soilSite;                       // Data holder for one site of soil data
@@ -159,10 +164,11 @@ public class DssatSoilOutput extends DssatCommonOutput {
             // Set default value for missing data
             setDefVal();
 
-            if (soils.isEmpty()) {
-                return outputFile;
+            if (soilSet.isEmpty()) {
+                return;
             }
-            soilSite = soils.get(0);
+            AceSoil[] soils = soilSet.toArray(new AceSoil[0]);
+            soilSite = soils[0];
 
             // Initial BufferedWriter
             // Get File name
@@ -187,9 +193,9 @@ public class DssatSoilOutput extends DssatCommonOutput {
             sbTitle.append("!This soil file is created by DSSAT translator tool on ").append(Calendar.getInstance().getTime()).append(".\r\n");
             sbTitle.append("*SOILS: ");
 
-            for (int i = 0; i < soils.size(); i++) {
+            for (int i = 0; i < soils.length; i++) {
 
-                soilSite = soils.get(i);
+                soilSite = soils[i];
                 sbError = new StringBuilder();
                 sbData = new StringBuilder();
 
@@ -325,6 +331,5 @@ public class DssatSoilOutput extends DssatCommonOutput {
         } catch (IOException e) {
             LOG.error(DssatCommonOutput.getStackTrace(e));
         }
-        return outputFile;
     }
 }

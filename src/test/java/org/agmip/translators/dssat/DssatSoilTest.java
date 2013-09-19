@@ -1,14 +1,9 @@
 package org.agmip.translators.dssat;
 
-import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.HashMap;
-import org.agmip.util.JSONAdapter;
-import static org.agmip.util.MapUtil.getObjectOr;
 import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
@@ -30,7 +25,7 @@ public class DssatSoilTest {
     public void setUp() throws Exception {
         obDssatSoilOutput = new DssatSoilOutput();
         obDssatSoilInput = new DssatSoilInput();
-        resource = this.getClass().getResource("/UFGA8202_MZX.zip");
+        resource = this.getClass().getResource("/UFGA8201_MZX.zip");
     }
     
 
@@ -40,6 +35,8 @@ public class DssatSoilTest {
         HashMap result;
 
         result = obDssatSoilInput.readFile(resource.getPath());
+//        result = new DssatControllerInput().readFile(resource.getPath());
+
 //        System.out.println(JSONAdapter.toJSON(result));
 //        File f = new File("outputS.txt");
 //        BufferedOutputStream bo = new BufferedOutputStream(new FileOutputStream(f));
@@ -47,11 +44,7 @@ public class DssatSoilTest {
 //        bo.close();
 //        f.delete();
 
-        ArrayList<HashMap> soilArr = getObjectOr(result, "soils", new ArrayList());
-        HashMap expData = new HashMap();
-        expData.put("soil", soilArr.get(0));
-//        soilArr.get(0).put("exname", "UFGA8201MZ");
-        obDssatSoilOutput.writeFile("", expData);
+        obDssatSoilOutput.writeFile("output", result);
         File file = obDssatSoilOutput.getOutputFile();
         if (file != null) {
             assertTrue(file.exists());

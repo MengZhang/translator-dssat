@@ -47,11 +47,7 @@ public class DssatWeatherTest {
 //        bo.close();
 //        f.delete();
 
-        ArrayList<HashMap> wthArr = getObjectOr(result, "weathers", new ArrayList());
-        HashMap expData = new HashMap();
-//        expData.put("weather", wthArr.get(0));
-//        wthArr.get(0).put("wst_id", "123456789");
-        obDssatWeatherOutput.writeFile("", expData);
+        obDssatWeatherOutput.writeFile("", result);
         File file = obDssatWeatherOutput.getOutputFile();
         if (file != null) {
             assertTrue(file.exists());

@@ -69,9 +69,9 @@ public class DssatWeatherOutput extends DssatCommonOutput {
         String path = revisePath(outDir);
 
         for (AceWeather wth : ace.getWeathers()) {
-            File newFile = writeFile(path, wth);
-            if (newFile != null) {
-                ret.add(newFile);
+            writeFile(path, wth);
+            if (outputFile != null) {
+                ret.add(outputFile);
             }
         }
         return ret;
@@ -82,10 +82,8 @@ public class DssatWeatherOutput extends DssatCommonOutput {
      *
      * @param arg0 file output path
      * @param wthFile data holder object
-     *
-     * @return the generated weather file
      */
-    public File writeFile(String arg0, AceWeather wthFile) {
+    public void writeFile(String arg0, AceWeather wthFile) {
 
         // Initial variables
         AceRecordCollection dailyWths;                   // Daily data array
@@ -211,6 +209,5 @@ public class DssatWeatherOutput extends DssatCommonOutput {
         } catch (IOException e) {
             LOG.error(DssatCommonOutput.getStackTrace(e));
         }
-        return outputFile;
     }
 }
