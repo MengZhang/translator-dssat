@@ -514,8 +514,11 @@ public class DssatXFileOutput extends DssatCommonOutput {
             for (int idx = 0; idx < flArr.size(); idx++) {
                 secData = (HashMap) flArr.get(idx);
                 // Check if the necessary is missing
-                if (getObjectOr(secData, "wst_id", "").equals("")) {
+                String wst_id = getObjectOr(secData, "wst_id", "");
+                if (wst_id.equals("")) {
                     sbError.append("! Warning: Incompleted record because missing data : [wst_id]\r\n");
+                } else if (wst_id.length() == 4 && !getValueOr(secData, "dssat_wst_id", "").equals("")) {
+                    wst_id = getValueOr(secData, "dssat_wst_id", "");
                 }
                 String soil_id = getValueOr(secData, "soil_id", defValC);
                 if (soil_id.equals("")) {
@@ -526,7 +529,7 @@ public class DssatXFileOutput extends DssatCommonOutput {
                 sbData.append(String.format("%1$2s %2$-8s %3$-8s %4$5s %5$5s %6$-5s %7$5s %8$5s %9$-5s %10$-5s%11$5s  %12$-10s %13$s\r\n", // P.S. change length definition to match current way
                         idx + 1, //getObjectOr(secData, "fl", defValI).toString(),
                         formatStr(8, secData, "id_field", defValC),
-                        formatStr(8, secData, "wst_id", defValC),
+                        wst_id,
                         formatStr(4, secData, "flsl", defValC),
                         formatNumStr(5, secData, "flob", defValR),
                         formatStr(5, secData, "fl_drntype", defValC),
