@@ -12,7 +12,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Level;
 import org.agmip.ace.AceBaseComponentType;
 import org.agmip.ace.AceDataset;
 import org.agmip.ace.AceExperiment;
@@ -79,7 +78,8 @@ public class DssatSoilOutput extends DssatCommonOutput {
      * the SOIL_ID
      *
      * @param ace the ACE data set
-     * @param commnets will record the comments related with soil site during grouping process
+     * @param commnets will record the comments related with soil site during
+     * grouping process
      *
      * @return the map of grouped soil data
      */

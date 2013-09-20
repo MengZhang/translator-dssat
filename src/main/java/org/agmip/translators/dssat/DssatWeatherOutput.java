@@ -54,7 +54,7 @@ public class DssatWeatherOutput extends DssatCommonOutput {
     }
 
     /**
-     * DSSAT Soil Data Output method
+     * DSSAT Weather Data Output method
      *
      * @param outDir the directory to ouput the translated files.
      * @param ace the source ACE Dataset
