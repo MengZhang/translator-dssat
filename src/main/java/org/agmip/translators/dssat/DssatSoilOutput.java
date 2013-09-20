@@ -55,8 +55,9 @@ public class DssatSoilOutput extends DssatCommonOutput {
      * @return the list of generated files
      */
 //    @Override
-    public List<File> write(File outDir, AceDataset ace, AceBaseComponentType... components) {
+    public List<File> write(File outDir, AceDataset ace, AceBaseComponentType... components) throws IOException {
 
+        ace.linkDataset();
         List<File> ret = new ArrayList<File>();
         Map<String, String> comments = new HashMap();
         Map<String, Set<AceSoil>> soilGroup = groupingSoilData(ace, comments);

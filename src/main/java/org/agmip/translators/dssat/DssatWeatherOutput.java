@@ -65,6 +65,7 @@ public class DssatWeatherOutput extends DssatCommonOutput {
 //    @Override
     public List<File> write(File outDir, AceDataset ace, AceBaseComponentType... components) throws IOException {
 
+        ace.linkDataset();
         List<File> ret = new ArrayList<File>();
         String path = revisePath(outDir);
 

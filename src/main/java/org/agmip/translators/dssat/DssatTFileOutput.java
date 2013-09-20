@@ -48,6 +48,7 @@ public class DssatTFileOutput extends DssatCommonOutput {
 //    @Override
     public List<File> write(File outDir, AceDataset ace, AceBaseComponentType... components) throws IOException {
 
+        ace.linkDataset();
         List<File> ret = new ArrayList<File>();
         Map<String, List<AceExperiment>> expGroup = groupingExpData(ace);
         String path = revisePath(outDir);
@@ -96,19 +97,6 @@ public class DssatTFileOutput extends DssatCommonOutput {
             if (observeRecords.isEmpty()) {
                 return;
             }
-
-//            for (int i = 0; i < records.size(); i++) {
-//                obvCol = getObjectOr(records.get(i), "timeSeries", new ArrayList());
-//                String trno = getValueOr(records.get(i), "trno", "1");
-//                if (!obvCol.isEmpty()) {
-//                    String[] sortIds = {"date"};
-//                    Collections.sort(obvCol, new DssatSortHelper(sortIds));
-//                    for (int j = 0; j < obvCol.size(); j++) {
-//                        obvCol.get(j).put("trno", trno);
-//                    }
-//                    observeRecords.addAll(obvCol);
-//                }
-//            }
 
             // Initial BufferedWriter
             String fileName = getFileName(exps.get(0), "T");

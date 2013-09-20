@@ -51,6 +51,7 @@ public class DssatAFileOutput extends DssatCommonOutput {
 //    @Override
     public List<File> write(File outDir, AceDataset ace, AceBaseComponentType... components) throws IOException {
 
+        ace.linkDataset();
         List<File> ret = new ArrayList<File>();
         Map<String, List<AceExperiment>> expGroup = groupingExpData(ace);
         String path = revisePath(outDir);
