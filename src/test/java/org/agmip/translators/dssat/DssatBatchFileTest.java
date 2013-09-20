@@ -43,6 +43,8 @@ public class DssatBatchFileTest {
             assertTrue(file.exists());
             assertEquals("DSSBatch.v45", file.getName());
             assertTrue(file.delete());
+        } else {
+            assertTrue(file != null);
         }
     }
 }

@@ -5,7 +5,12 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
-import static org.agmip.util.MapUtil.*;
+import org.agmip.ace.AceBaseComponentType;
+import org.agmip.ace.AceDataset;
+import org.agmip.ace.AceExperiment;
+import org.agmip.ace.AceRecord;
+import org.agmip.ace.io.AceParser;
+import org.agmip.util.JSONAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,19 +25,53 @@ public class DssatTFileOutput extends DssatCommonOutput {
     private static final Logger LOG = LoggerFactory.getLogger(DssatTFileOutput.class);
 
     /**
-     * DSSAT Observation Data Output method
+     * DSSAT Time series Observation Data Output method
      *
      * @param arg0 file output path
      * @param result data holder object
      */
     @Override
-    public void writeFile(String arg0, Map result) {
+    public void writeFile(String arg0, Map result) throws IOException {
+        AceDataset ace = AceParser.parse(JSONAdapter.toJSON(result));
+        write(new File(arg0), ace);
+    }
+
+    /**
+     * DSSAT Time series Observation Data Output method
+     *
+     * @param outDir the directory to output the translated files.
+     * @param ace the source ACE Dataset
+     * @param components subcomponents to translate
+     *
+     * @return the list of generated files
+     */
+//    @Override
+    public List<File> write(File outDir, AceDataset ace, AceBaseComponentType... components) throws IOException {
+
+        List<File> ret = new ArrayList<File>();
+        Map<String, List<AceExperiment>> expGroup = groupingExpData(ace);
+        String path = revisePath(outDir);
+
+        for (String expName : expGroup.keySet()) {
+            writeFile(path, expGroup.get(expName));
+            if (outputFile != null) {
+                ret.add(outputFile);
+            }
+        }
+        return ret;
+    }
+
+    /**
+     * DSSAT Time series Observation Data Output method
+     *
+     * @param arg0 file output path
+     * @param exps data holder object
+     */
+    public void writeFile(String arg0, List<AceExperiment> exps) {
 
         // Initial variables
-        HashMap<String, String> record;       // Data holder for time series data
-        ArrayList<HashMap> records;
-        ArrayList<HashMap> recordT;
-        ArrayList<HashMap> observeRecords;    // Array of data holder for time series data
+        List<AceRecord> obvCol;
+        List<List<AceRecord>> observeRecords;    // Array of data holder for time series data
         BufferedWriter bwT;                         // output object
         StringBuilder sbData = new StringBuilder();             // construct the data info in the output
         HashMap<String, String> altTitleList = new HashMap();   // Define alternative fields for the necessary observation data fields; key is necessary field
@@ -46,37 +85,35 @@ public class DssatTFileOutput extends DssatCommonOutput {
             setDefVal();
 
             // Get Data from input holder
-            Object tmpData = getObjectOr(result, "observed", new Object());
-            if (tmpData instanceof ArrayList) {
-                records = (ArrayList) tmpData;
-            } else if (tmpData instanceof HashMap) {
-                records = new ArrayList();
-                records.add((HashMap) tmpData);
-            } else {
-                return;
-            }
-            if (records.isEmpty()) {
-                return;
-            }
-
             observeRecords = new ArrayList();
-            for (int i = 0; i < records.size(); i++) {
-                recordT = getObjectOr(records.get(i), "timeSeries", new ArrayList());
-                String trno = getValueOr(records.get(i), "trno", "1");
-                if (!recordT.isEmpty()) {
-                    String[] sortIds = {"date"};
-                    Collections.sort(recordT, new DssatSortHelper(sortIds));
-                    for (int j = 0; j < recordT.size(); j++) {
-                        recordT.get(j).put("trno", trno);
-                    }
-                    observeRecords.addAll(recordT);
+            for (AceExperiment exp : exps) {
+                obvCol = new LinkedList(exp.getOberservedData().getTimeseries());
+                if (!obvCol.isEmpty()) {
+                    Collections.sort(obvCol, new DssatSortHelper("date"));
+                    observeRecords.add(obvCol);
                 }
             }
+            if (observeRecords.isEmpty()) {
+                return;
+            }
+
+//            for (int i = 0; i < records.size(); i++) {
+//                obvCol = getObjectOr(records.get(i), "timeSeries", new ArrayList());
+//                String trno = getValueOr(records.get(i), "trno", "1");
+//                if (!obvCol.isEmpty()) {
+//                    String[] sortIds = {"date"};
+//                    Collections.sort(obvCol, new DssatSortHelper(sortIds));
+//                    for (int j = 0; j < obvCol.size(); j++) {
+//                        obvCol.get(j).put("trno", trno);
+//                    }
+//                    observeRecords.addAll(obvCol);
+//                }
+//            }
 
             // Initial BufferedWriter
-            String fileName = getFileName(result, "T");
+            String fileName = getFileName(exps.get(0), "T");
             if (fileName.endsWith(".XXT")) {
-                String crid = DssatCRIDHelper.get2BitCrid(getValueOr(result, "crid", "XX"));
+                String crid = DssatCRIDHelper.get2BitCrid(getValueOr(exps.get(0), "crid", "XX"));
                 fileName = fileName.replaceAll("XX", crid);
             }
             arg0 = revisePath(arg0);
@@ -87,55 +124,54 @@ public class DssatTFileOutput extends DssatCommonOutput {
             // Titel Section
             sbData.append(String.format("*EXP.DATA (T): %1$-10s %2$s\r\n\r\n",
                     fileName.replaceAll("\\.", "").replaceAll("T$", ""),
-                    getObjectOr(result, "local_name", defValBlank)));
+                    exps.get(0).getValueOr("local_name", defValBlank)));
 
             titleOutput = new HashMap();
-            // TODO get title for output
             // Loop all records to find out all the titles
             for (int i = 0; i < observeRecords.size(); i++) {
-                record = observeRecords.get(i);
+                for (AceRecord record : observeRecords.get(i)) {
 
-                // Check if which field is available
-                for (String key : record.keySet()) {
-                    // check which optional data is exist, if not, remove from map
-                    if (obvDataList.isTimeSeriesData(key)) {
-                        titleOutput.put(key, key);
-
-                    } // check if the additional data is too long to output
-                    else if (key.toString().length() <= 5) {
-                        if (!key.equals("date") && !key.equals("trno")) {
+                    // Check if which field is available
+                    for (String key : record.keySet()) {
+                        // check which optional data is exist, if not, remove from map
+                        if (obvDataList.isTimeSeriesData(key)) {
                             titleOutput.put(key, key);
+
+                        } // check if the additional data is too long to output
+                        else if (key.toString().length() <= 5) {
+                            if (!key.equals("date") && !key.equals("trno")) {
+                                titleOutput.put(key, key);
+                            }
+
+                        } // If it is too long for DSSAT, give a warning message
+                        else {
+                            sbError.append("! Waring: Unsuitable data for DSSAT observed data (too long): [").append(key).append("]\r\n");
                         }
-
-                    } // If it is too long for DSSAT, give a warning message
-                    else {
-                        sbError.append("! Waring: Unsuitable data for DSSAT observed data (too long): [").append(key).append("]\r\n");
                     }
-                }
 
-                // Check if all necessary field is available    // P.S. conrently unuseful
-                for (String title : altTitleList.keySet()) {
+                    // Check if all necessary field is available    // P.S. conrently unuseful
+                    for (String title : altTitleList.keySet()) {
 
-                    // check which optional data is exist, if not, remove from map
-                    if (getValueOr(record, title, "").equals("")) {
+                        // check which optional data is exist, if not, remove from map
+                        if (getValueOr(record, title, "").equals("")) {
 
-                        if (!getValueOr(record, altTitleList.get(title), "").equals("")) {
-                            titleOutput.put(title, altTitleList.get(title));
+                            if (!getValueOr(record, altTitleList.get(title), "").equals("")) {
+                                titleOutput.put(title, altTitleList.get(title));
+                            } else {
+                                sbError.append("! Waring: Incompleted record because missing data : [").append(title).append("]\r\n");
+                            }
+
                         } else {
-                            sbError.append("! Waring: Incompleted record because missing data : [").append(title).append("]\r\n");
                         }
-
-                    } else {
                     }
                 }
-
             }
 
             // decompress observed data
 //            decompressData(observeRecords);
             // Observation Data Section
-            Object[] titleOutputId = titleOutput.keySet().toArray();
-            String pdate = getPdate(result);
+            String[] titleOutputId = titleOutput.keySet().toArray(new String[0]);
+            String pdate = getPdate(exps.get(0));
             for (int i = 0; i < (titleOutputId.length / 39 + titleOutputId.length % 39 == 0 ? 0 : 1); i++) {
 
                 sbData.append("@TRNO   DATE");
@@ -146,22 +182,23 @@ public class DssatTFileOutput extends DssatCommonOutput {
                 sbData.append("\r\n");
 
                 for (int j = 0; j < observeRecords.size(); j++) {
+                    for (AceRecord record : observeRecords.get(j)) {
 
-                    record = (HashMap) observeRecords.get(j);
-                    sbData.append(String.format(" %1$5s", getValueOr(record, "trno", "1")));
-                    sbData.append(String.format(" %1$5d", Integer.parseInt(formatDateStr(getObjectOr(record, "date", defValI).toString()))));
-                    for (int k = i * 39; k < limit; k++) {
+                        sbData.append(String.format(" %1$5d", j + 1));
+                        sbData.append(String.format(" %1$5d", Integer.parseInt(formatDateStr(getValueOr(record, "date", defValI)))));
+                        for (int k = i * 39; k < limit; k++) {
 
-                        if (obvDataList.isDapDateType(titleOutputId[k], titleOutput.get(titleOutputId[k]))) {
-                            sbData.append(String.format("%1$6s", formatDateStr(pdate, getObjectOr(record, titleOutput.get(titleOutputId[k]).toString(), defValI).toString())));
-                        } else if (obvDataList.isDateType(titleOutputId[k])) {
-                            sbData.append(String.format("%1$6s", formatDateStr(getObjectOr(record, titleOutput.get(titleOutputId[k]).toString(), defValI).toString())));
-                        } else {
-                            sbData.append(" ").append(formatNumStr(5, record, titleOutput.get(titleOutputId[k]), defValI));
+                            if (obvDataList.isDapDateType(titleOutputId[k], titleOutput.get(titleOutputId[k]))) {
+                                sbData.append(String.format("%1$6s", formatDateStr(pdate, getValueOr(record, titleOutput.get(titleOutputId[k]).toString(), defValI))));
+                            } else if (obvDataList.isDateType(titleOutputId[k])) {
+                                sbData.append(String.format("%1$6s", formatDateStr(getValueOr(record, titleOutput.get(titleOutputId[k]).toString(), defValI))));
+                            } else {
+                                sbData.append(" ").append(formatNumStr(5, record, titleOutput.get(titleOutputId[k]), defValI));
+                            }
+
                         }
-
+                        sbData.append("\r\n");
                     }
-                    sbData.append("\r\n");
                 }
             }
             // Add section deviding line

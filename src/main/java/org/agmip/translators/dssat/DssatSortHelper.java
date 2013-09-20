@@ -2,6 +2,7 @@ package org.agmip.translators.dssat;
 
 import java.util.Comparator;
 import java.util.HashMap;
+import org.agmip.ace.AceRecord;
 import static org.agmip.util.MapUtil.getValueOr;
 
 /**
@@ -10,7 +11,7 @@ import static org.agmip.util.MapUtil.getValueOr;
  * @author Meng Zhang
  * @version 1.0
  */
-class DssatSortHelper implements Comparator<HashMap> {
+class DssatSortHelper implements Comparator<AceRecord> {
 
     private String[] sortIds;
     private int decVal = 1;
@@ -22,7 +23,7 @@ class DssatSortHelper implements Comparator<HashMap> {
      * @param sortIds array of id for sorting process, order in the array means
      * priority of sorting
      */
-    public DssatSortHelper(String[] sortIds) {
+    public DssatSortHelper(String... sortIds) {
         this(sortIds, true);
     }
 
@@ -54,7 +55,7 @@ class DssatSortHelper implements Comparator<HashMap> {
      * @return
      */
     @Override
-    public int compare(HashMap m1, HashMap m2) {
+    public int compare(AceRecord m1, AceRecord m2) {
         double val1;
         double val2;
         for (int i = 0; i < sortIds.length; i++) {
@@ -76,11 +77,11 @@ class DssatSortHelper implements Comparator<HashMap> {
      * @param key variable name
      * @return
      */
-    private double getValue(HashMap m, String key) {
+    private double getValue(AceRecord m, String key) {
         try {
-            return Double.parseDouble(getValueOr(m, key, ""));
+            return Double.parseDouble(m.getValueOr(key, ""));
         } catch (Exception e) {
-            return -99;
+            return Double.MIN_VALUE;
         }
     }
 }

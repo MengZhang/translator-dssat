@@ -61,6 +61,8 @@ public class DssatXFileTest {
             assertTrue(file.exists());
             assertEquals("UFGA8202.MZX", file.getName());
             assertTrue(file.delete());
+        } else {
+            assertTrue(file != null);
         }
     }
 }

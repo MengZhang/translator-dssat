@@ -9,12 +9,20 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.agmip.ace.AceComponent;
+import org.agmip.ace.AceDataset;
+import org.agmip.ace.AceEvent;
+import org.agmip.ace.AceEventCollection;
+import org.agmip.ace.AceEventType;
+import org.agmip.ace.AceExperiment;
 import org.agmip.ace.AceSoil;
 import org.agmip.ace.AceWeather;
 import org.agmip.ace.LookupCodes;
+import org.agmip.common.Functions;
 import org.agmip.core.types.TranslatorOutput;
 import org.agmip.util.MapUtil;
 import static org.agmip.util.MapUtil.getObjectOr;
@@ -28,9 +36,8 @@ import org.slf4j.LoggerFactory;
  * @version 1.0
  */
 public abstract class DssatCommonOutput implements TranslatorOutput {
-    
-    private static final Logger LOG = LoggerFactory.getLogger(DssatCommonInput.class);
 
+    private static final Logger LOG = LoggerFactory.getLogger(DssatCommonInput.class);
     // Default value for each type of value (R: real number; C: String; I: Integer; D: Date)
     protected String defValR = "0.00";
     protected String defValC = "";
@@ -92,8 +99,13 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
      * @param defVal the default return value when error happens
      * @return formated string of number
      */
-    protected String formatNumStr(int bits, AceComponent m, String key, String defVal) throws IOException {
-        return formatNumStr(bits, m.getValueOr(key, defVal), key, defVal);
+    protected String formatNumStr(int bits, AceComponent m, String key, String defVal) {
+        try {
+            return formatNumStr(bits, m.getValueOr(key, defVal), key, defVal);
+        } catch (IOException e) {
+            LOG.warn(Functions.getStackTrace(e));
+            return defVal;
+        }
     }
 
     /**
@@ -172,7 +184,7 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
             sbError.append("! Waring: There is a variable [").append(key).append("] with oversized content [").append(val).append("], only first ").append(bits).append(" bits will be applied.\r\n");
             return val.substring(0, bits);
         }
-        
+
         return val;
     }
 
@@ -223,7 +235,7 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
      * @param result date holder for experiment data
      * @return experiment name
      */
-    protected String getExName(Map result) {
+    protected String getExName(Object result) {
 
         String ret = getValueOr(result, "exname", "");
         if (ret.matches("\\w+\\.\\w{2}[Xx]")) {
@@ -262,19 +274,53 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
     }
 
     /**
+     * Get crop id with 2-bit format
+     *
+     * @param exp ACE experiment data set
+     * @return crop id
+     */
+    protected String getCrid(AceExperiment exp) {
+
+        AceEventCollection events = exp.getEvents();
+        String crid = null;
+        for (Iterator<AceEvent> it = events.iterator(); it.hasNext();) {
+            AceEvent aceEvent = it.next();
+            if (aceEvent.getEventType().equals(AceEventType.ACE_PLANTING_EVENT)) {
+                try {
+                    if (crid == null) {
+                        crid = aceEvent.getValue("crid");
+                    } else if (!crid.equals(aceEvent.getValueOr("crid", ""))) {
+                        return "SQ";
+                    }
+                } catch (IOException e) {
+                    LOG.warn(Functions.getStackTrace(e));
+                }
+            }
+        }
+//        DssatCRIDHelper crids = new DssatCRIDHelper();
+        return DssatCRIDHelper.get2BitCrid(crid);
+    }
+
+    /**
      * Generate output file name
      *
      * @param result date holder for experiment data
      * @param fileType the last letter from file extend name
      * @return file name
      */
-    protected String getFileName(Map result, String fileType) {
+    protected String getFileName(Object result, String fileType) {
         String exname = getExName(result);
         String crid;
         if (getValueOr(result, "seasonal_dome_applied", "N").equals("Y")) {
             crid = "SN";
         } else {
-            crid = getCrid(result);
+            if (result instanceof Map) {
+                crid = getCrid((Map) result);
+            } else if (result instanceof AceExperiment) {
+                crid = getCrid((AceExperiment) result);
+            } else {
+                crid = "XX";
+            }
         }
         if (exname.length() == 10) {
             if (crid.equals("XX")) {
@@ -323,7 +369,7 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
             }
         }
 
-        
+
         exToFileMap.put(exname + "_" + crid, ret + "." + crid);
         fileNameSet.add(ret + "." + crid);
 
@@ -353,7 +399,7 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
         }
         return path;
     }
-    
+
     /**
      * Revise output path
      *
@@ -451,6 +497,30 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
         for (int i = 0; i < events.size(); i++) {
             if (getValueOr(events.get(i), "event", "").equals("planting")) {
                 return getValueOr(events.get(i), "date", "");
+            }
+        }
+
+        return "";
+    }
+
+    /**
+     * Get plating date from experiment management event
+     *
+     * @param exp the experiment data object
+     * @return plating date
+     */
+    protected String getPdate(AceExperiment exp) {
+
+        AceEventCollection events = exp.getEvents();
+        for (Iterator<AceEvent> it = events.iterator(); it.hasNext();) {
+            AceEvent event = it.next();
+            if (event.getEventType().equals(AceEventType.ACE_PLANTING_EVENT)) {
+                try {
+                    return event.getValueOr("date", "");
+                } catch (IOException e) {
+                    LOG.warn(Functions.getStackTrace(e));
+                    return "";
+                }
             }
         }
 
@@ -575,7 +645,7 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
             return null;
         }
     }
-    
+
     protected String transSltx(String sltx) {
         String ret = LookupCodes.lookupCode("sltx", sltx, "Alternate").toUpperCase();
         LOG.debug("{} is translated to {}", sltx, ret);
@@ -589,10 +659,45 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
             try {
                 return ((AceComponent) data).getValueOr(key, orVal);
             } catch (IOException e) {
+                LOG.warn(Functions.getStackTrace(e));
                 return orVal;
             }
         } else {
             return orVal;
         }
+    }
+
+    /**
+     * Group the experiment data
+     *
+     * The experiment data in the same group must contain same EXNAME. The
+     * Suffix is not counted, for example: the UFGA8201_1 and UFGA8201_2 are
+     * considered as same EXNAME.
+     *
+     * @param ace the ACE data set
+     *
+     * @return the map of grouped experiment data
+     */
+    protected Map<String, List<AceExperiment>> groupingExpData(AceDataset ace) {
+        Map<String, List<AceExperiment>> expGroup = new HashMap();
+        List<AceExperiment> exps = ace.getExperiments();
+        for (int i = 0; i < exps.size(); i++) {
+            AceExperiment exp = exps.get(i);
+            String exname = getValueOr(exp, "exname", "");
+            if (exname.equals("")) {
+                List<AceExperiment> subExpArr = new ArrayList();
+                subExpArr.add(exp);
+                expGroup.put("Experiment_" + i, subExpArr);
+            } else {
+                exname = getFileName(exp, "");
+                List<AceExperiment> subExpArr = expGroup.get(exname);
+                if (subExpArr == null) {
+                    subExpArr = new ArrayList();
+                    expGroup.put(exname, subExpArr);
+                }
+                subExpArr.add(exp);
+            }
+        }
+        return expGroup;
     }
 }

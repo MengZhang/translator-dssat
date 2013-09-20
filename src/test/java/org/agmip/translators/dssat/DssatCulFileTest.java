@@ -55,6 +55,8 @@ public class DssatCulFileTest {
             assertTrue(file.exists());
             assertEquals("APAN9304_PNX.CUL", file.getName());
             assertTrue(file.delete());
+        } else {
+            assertTrue(file != null);
         }
     }
 }

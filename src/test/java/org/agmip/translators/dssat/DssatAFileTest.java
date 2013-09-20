@@ -1,14 +1,9 @@
 package org.agmip.translators.dssat;
 
-import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.HashMap;
-import org.agmip.util.JSONAdapter;
-import static org.agmip.util.MapUtil.getObjectOr;
 import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
@@ -30,7 +25,7 @@ public class DssatAFileTest {
     public void setUp() throws Exception {
         obDssatAFileOutput = new DssatAFileOutput();
         obDssatAFileInput = new DssatAFileInput();
-        resource = this.getClass().getResource("/UFGA8202_MZX.ZIP");
+        resource = this.getClass().getResource("/UFGA8201_MZX.ZIP");
     }
 
     @Test
@@ -39,6 +34,8 @@ public class DssatAFileTest {
         HashMap result;
 
         result = obDssatAFileInput.readFile(resource.getPath());
+//        result = new DssatControllerInput().readFile(resource.getPath());
+
 //        System.out.println(JSONAdapter.toJSON(result));
 //        File f = new File("outputA.txt");
 //        BufferedOutputStream bo = new BufferedOutputStream(new FileOutputStream(f));
@@ -46,13 +43,15 @@ public class DssatAFileTest {
 //        bo.close();
 //        f.delete();
 
-        ArrayList<HashMap> expArr = getObjectOr(result, "experiments", new ArrayList());
-        obDssatAFileOutput.writeFile("", expArr.get(0));
+//        ArrayList<HashMap> expArr = getObjectOr(result, "experiments", new ArrayList());
+        obDssatAFileOutput.writeFile("output", result);
         File file = obDssatAFileOutput.getOutputFile();
         if (file != null) {
             assertTrue(file.exists());
-            assertEquals("UFGA8202.MZA", file.getName());
+            assertEquals("UFGA8201.MZA", file.getName());
             assertTrue(file.delete());
+        } else {
+            assertTrue(file != null);
         }
     }
 }

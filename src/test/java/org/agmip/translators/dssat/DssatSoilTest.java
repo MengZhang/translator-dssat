@@ -50,6 +50,8 @@ public class DssatSoilTest {
             assertTrue(file.exists());
             assertEquals("IB.SOL", file.getName());
             assertTrue(file.delete());
+        } else {
+            assertTrue(file != null);
         }
     }
 }

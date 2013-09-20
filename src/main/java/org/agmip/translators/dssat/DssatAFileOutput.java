@@ -6,8 +6,14 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import static org.agmip.util.MapUtil.*;
+import org.agmip.ace.AceBaseComponentType;
+import org.agmip.ace.AceDataset;
+import org.agmip.ace.AceExperiment;
+import org.agmip.ace.AceObservedData;
+import org.agmip.ace.io.AceParser;
+import org.agmip.util.JSONAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,17 +28,53 @@ public class DssatAFileOutput extends DssatCommonOutput {
     private static final Logger LOG = LoggerFactory.getLogger(DssatAFileOutput.class);
 
     /**
-     * DSSAT Observation Data Output method
+     * DSSAT Summary Observation Data Output method
      *
      * @param arg0 file output path
      * @param result data holder object
      */
     @Override
-    public void writeFile(String arg0, Map result) {
+    public void writeFile(String arg0, Map result) throws IOException {
+        AceDataset ace = AceParser.parse(JSONAdapter.toJSON(result));
+        write(new File(arg0), ace);
+    }
+
+    /**
+     * DSSAT Summary Observation Data Output method
+     *
+     * @param outDir the directory to output the translated files.
+     * @param ace the source ACE Dataset
+     * @param components subcomponents to translate
+     *
+     * @return the list of generated files
+     */
+//    @Override
+    public List<File> write(File outDir, AceDataset ace, AceBaseComponentType... components) throws IOException {
+
+        List<File> ret = new ArrayList<File>();
+        Map<String, List<AceExperiment>> expGroup = groupingExpData(ace);
+        String path = revisePath(outDir);
+
+        for (String expName : expGroup.keySet()) {
+            writeFile(path, expGroup.get(expName));
+            if (outputFile != null) {
+                ret.add(outputFile);
+            }
+        }
+        return ret;
+    }
+
+    /**
+     * DSSAT Summary Observation Data Output method
+     *
+     * @param arg0 file output path
+     * @param exps data holder object
+     */
+    public void writeFile(String arg0, List<AceExperiment> exps) {
 
         // Initial variables
-        HashMap<String, String> record;       // Data holder for summary data
-        ArrayList<HashMap<String, String>> records; // Array of Data holder for summary data
+        AceObservedData record;       // Data holder for summary data
+        ArrayList<AceObservedData> records = new ArrayList(); // Array of Data holder for summary data
         BufferedWriter bwA;                         // output object
         StringBuilder sbData = new StringBuilder(); // construct the data info in the output
         HashMap<String, String> altTitleList = new HashMap();   // Define alternative fields for the necessary observation data fields; key is necessary field
@@ -48,24 +90,18 @@ public class DssatAFileOutput extends DssatCommonOutput {
             // Set default value for missing data
             setDefVal();
 
-            // Get Data from input holder
-            Object tmpData = getObjectOr(result, "observed", new Object());
-            if (tmpData instanceof ArrayList) {
-                records = (ArrayList) tmpData;
-            } else if (tmpData instanceof HashMap) {
-                records = new ArrayList();
-                records.add((HashMap) tmpData);
-            } else {
-                return;
+            // Get Data from grouped experiment list
+            for (AceExperiment exp : exps) {
+                records.add(exp.getOberservedData());
             }
             if (records.isEmpty()) {
                 return;
             }
 
             // Initial BufferedWriter
-            String fileName = getFileName(result, "A");
+            String fileName = getFileName(exps.get(0), "A");
             if (fileName.endsWith(".XXA")) {
-                String crid = DssatCRIDHelper.get2BitCrid(getValueOr(result, "crid", "XX"));
+                String crid = DssatCRIDHelper.get2BitCrid(getValueOr(exps.get(0), "crid", "XX"));
                 fileName = fileName.replaceAll("XX", crid);
             }
             arg0 = revisePath(arg0);
@@ -76,14 +112,14 @@ public class DssatAFileOutput extends DssatCommonOutput {
             // Titel Section
             sbData.append(String.format("*EXP.DATA (A): %1$-10s %2$s\r\n\r\n",
                     fileName.replaceAll("\\.", "").replaceAll("T$", ""),
-                    getObjectOr(result, "local_name", defValBlank)));
+                    getValueOr(exps.get(0), "local_name", defValBlank)));
 
             // Check if which field is available
             for (int i = 0; i < records.size(); i++) {
                 record = records.get(i);
                 for (String key : record.keySet()) {
 
-                    if (!(record.get(key) instanceof String)) {
+                    if (record.getValue(key) == null) {
                         continue;
                     } else if (titleOutput.containsKey(key)) {
                         continue;
@@ -122,11 +158,9 @@ public class DssatAFileOutput extends DssatCommonOutput {
                 }
             }
 
-            // decompress observed data
-//            decompressData(trArr);
             // Observation Data Section
-            Object[] titleOutputId = titleOutput.keySet().toArray();
-            String pdate = getPdate(result);
+            String[] titleOutputId = titleOutput.keySet().toArray(new String[0]);
+
             int loops = titleOutputId.length / 40 + titleOutputId.length % 40 == 0 ? 0 : 1;
             for (int i = 0; i < loops; i++) {
 
@@ -141,13 +175,14 @@ public class DssatAFileOutput extends DssatCommonOutput {
                 // Write data line
                 for (int j = 0; j < records.size(); j++) {
                     record = records.get(j);
-                    sbData.append(String.format(" %1$5s", getValueOr(record, "trno", "1")));
+                    String pdate = getPdate(exps.get(j));
+                    sbData.append(String.format(" %1$5d", (j + 1)));
                     for (int k = i * 40; k < limit; k++) {
 
                         if (obvDataList.isDapDateType(titleOutputId[k], titleOutput.get(titleOutputId[k]))) {
-                            sbData.append(String.format("%1$6s", cutYear(formatDateStr(pdate, getObjectOr(record, titleOutput.get(titleOutputId[k]).toString(), defValI).toString()))));
+                            sbData.append(String.format("%1$6s", cutYear(formatDateStr(pdate, record.getValueOr(titleOutput.get(titleOutputId[k]).toString(), defValI).toString()))));
                         } else if (obvDataList.isDateType(titleOutputId[k])) {
-                            sbData.append(String.format("%1$6s", cutYear(formatDateStr(getObjectOr(record, titleOutput.get(titleOutputId[k]).toString(), defValI).toString()))));
+                            sbData.append(String.format("%1$6s", cutYear(formatDateStr(record.getValueOr(titleOutput.get(titleOutputId[k]).toString(), defValI).toString()))));
                         } else {
                             sbData.append(" ").append(formatNumStr(5, record, titleOutput.get(titleOutputId[k]), defValI));
                         }
