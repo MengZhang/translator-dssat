@@ -8,9 +8,25 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import org.agmip.ace.AceBaseComponentType;
+import org.agmip.ace.AceComponent;
+import org.agmip.ace.AceDataset;
+import org.agmip.ace.AceEvent;
+import org.agmip.ace.AceEventType;
+import org.agmip.ace.AceExperiment;
+import org.agmip.ace.AceInitialConditions;
+import org.agmip.ace.AceRecord;
+import org.agmip.ace.AceRecordCollection;
+import org.agmip.ace.AceSoil;
+import org.agmip.ace.AceWeather;
+import org.agmip.ace.io.AceParser;
+import org.agmip.ace.util.AceFunctions;
 import static org.agmip.translators.dssat.DssatCommonInput.copyItem;
+import org.agmip.util.JSONAdapter;
 import static org.agmip.util.MapUtil.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,68 +49,94 @@ public class DssatXFileOutput extends DssatCommonOutput {
      * @param result data holder object
      */
     @Override
-    public void writeFile(String arg0, Map result) {
+    public void writeFile(String arg0, Map result) throws IOException {
+        AceDataset ace = AceParser.parse(JSONAdapter.toJSON(result));
+        write(new File(arg0), ace);
+    }
+
+    /**
+     * DSSAT Experiment Data Output method
+     *
+     * @param outDir the directory to output the translated files.
+     * @param ace the source ACE Dataset
+     * @param components subcomponents to translate
+     *
+     * @return the list of generated files
+     */
+//    @Override
+    public List<File> write(File outDir, AceDataset ace, AceBaseComponentType... components) throws IOException {
+
+        ace.linkDataset();
+        List<File> ret = new ArrayList<File>();
+        Map<String, List<AceExperiment>> expGroup = groupingExpData(ace);
+        String path = revisePath(outDir);
+
+        for (String expName : expGroup.keySet()) {
+            writeFile(path, expGroup.get(expName));
+            if (outputFile != null) {
+                ret.add(outputFile);
+            }
+        }
+        return ret;
+    }
+
+    /**
+     * DSSAT Experiment Data Output method
+     *
+     * @param arg0 file output path
+     * @param exps the list of ACE experiment data
+     */
+    public void writeFile(String arg0, List<AceExperiment> exps) {
 
         // Initial variables
-        HashMap expData = (HashMap) result;
-        ArrayList<HashMap> soilArr = readSWData(expData, "soil");
-        ArrayList<HashMap> wthArr = readSWData(expData, "weather");
-        HashMap soilData;
-        HashMap wthData;
-        BufferedWriter bwX;                          // output object
+        AceExperiment expData;
+        AceSoil soilData;
+        AceWeather wthData;
+        BufferedWriter bwX;                                 // output object
         StringBuilder sbGenData = new StringBuilder();      // construct the data info in the output
         StringBuilder sbDomeData = new StringBuilder();     // construct the dome info in the output
-        StringBuilder sbNotesData = new StringBuilder();      // construct the data info in the output
+        StringBuilder sbNotesData = new StringBuilder();    // construct the data info in the output
         StringBuilder sbData = new StringBuilder();         // construct the data info in the output
-        StringBuilder eventPart2 = new StringBuilder();                   // output string for second part of event data
-        HashMap secData;
-        ArrayList subDataArr;                       // Arraylist for event data holder
-        HashMap subData;
-        ArrayList secDataArr;                       // Arraylist for section data holder
-        HashMap sqData;
-        ArrayList<HashMap> evtArr;            // Arraylist for section data holder
-        HashMap evtData;
-//        int trmnNum;                            // total numbers of treatment in the data holder
-        int cuNum;                              // total numbers of cultivars in the data holder
-        int flNum;                              // total numbers of fields in the data holder
-        int saNum;                              // total numbers of soil analysis in the data holder
-        int icNum;                              // total numbers of initial conditions in the data holder
-        int mpNum;                              // total numbers of plaintings in the data holder
-        int miNum;                              // total numbers of irrigations in the data holder
-        int mfNum;                              // total numbers of fertilizers in the data holder
-        int mrNum;                              // total numbers of residues in the data holder
-        int mcNum;                              // total numbers of chemical in the data holder
-        int mtNum;                              // total numbers of tillage in the data holder
-        int meNum;                              // total numbers of enveronment modification in the data holder
-        int mhNum;                              // total numbers of harvest in the data holder
-        int smNum;                              // total numbers of simulation controll record
-        ArrayList<HashMap> sqArr;     // array for treatment record
-        ArrayList cuArr = new ArrayList();   // array for cultivars record
-        ArrayList flArr = new ArrayList();   // array for fields record
-        ArrayList saArr = new ArrayList();   // array for soil analysis record
-        ArrayList icArr = new ArrayList();   // array for initial conditions record
-        ArrayList mpArr = new ArrayList();   // array for plaintings record
-        ArrayList miArr = new ArrayList();   // array for irrigations record
-        ArrayList mfArr = new ArrayList();   // array for fertilizers record
-        ArrayList mrArr = new ArrayList();   // array for residues record
-        ArrayList mcArr = new ArrayList();   // array for chemical record
-        ArrayList mtArr = new ArrayList();   // array for tillage record
-        ArrayList meArr = new ArrayList();     // array for enveronment modification record
-        ArrayList mhArr = new ArrayList();   // array for harvest record
-        ArrayList smArr = new ArrayList();     // array for simulation control record
-//        String exName;
+        StringBuilder eventPart2 = new StringBuilder();     // output string for second part of event data
+        int trNum;                              // calcualted index of treatment in the data holder
+        int cuNum;                              // calcualted index of cultivars in the data holder
+        int flNum;                              // calcualted index of fields in the data holder
+        int saNum;                              // calcualted index of soil analysis in the data holder
+        int icNum;                              // calcualted index of initial conditions in the data holder
+        int mpNum;                              // calcualted index of plaintings in the data holder
+        int miNum;                              // calcualted index of irrigations in the data holder
+        int mfNum;                              // calcualted index of fertilizers in the data holder
+        int mrNum;                              // calcualted index of residues in the data holder
+        int mcNum;                              // calcualted index of chemical in the data holder
+        int mtNum;                              // calcualted index of tillage in the data holder
+        int emNum;                              // calcualted index of enveronment modification in the data holder
+        int mhNum;                              // calcualted index of harvest in the data holder
+        int smNum;                              // calcualted index of simulation controll record
+        ArrayList<HashMap> cuArr = new ArrayList();   // array for cultivars record
+        ArrayList<HashMap> flArr = new ArrayList();   // array for fields record
+        ArrayList<HashMap> saArr = new ArrayList();   // array for soil analysis record
+        ArrayList<AceInitialConditions> icArr = new ArrayList();   // array for initial conditions record
+        ArrayList<HashMap> mpArr = new ArrayList();   // array for plaintings record
+        ArrayList<ArrayList<AceEvent>> miArr = new ArrayList();   // array for irrigations record
+        ArrayList<ArrayList<AceEvent>> mfArr = new ArrayList();   // array for fertilizers record
+        ArrayList<ArrayList<AceEvent>> mrArr = new ArrayList();   // array for residues record
+        ArrayList<ArrayList<AceEvent>> mcArr = new ArrayList();   // array for chemical record
+        ArrayList<ArrayList<AceEvent>> mtArr = new ArrayList();   // array for tillage record
+        ArrayList<AceComponent> emArr = new ArrayList();     // array for enveronment modification record
+        ArrayList<ArrayList<AceEvent>> mhArr = new ArrayList();   // array for harvest record
+        ArrayList<HashMap> smArr = new ArrayList();     // array for simulation control record
 
         try {
 
             // Set default value for missing data
-            if (expData == null || expData.isEmpty()) {
+            if (exps == null || exps.isEmpty()) {
                 return;
             }
-//            decompressData((HashMap) result);
+            expData = exps.get(0);
             setDefVal();
 
             // Initial BufferedWriter
-            String fileName = getFileName(result, "X");
+            String fileName = getFileName(exps.get(0), "X");
             arg0 = revisePath(arg0);
             outputFile = new File(arg0 + fileName);
             bwX = new BufferedWriter(new FileWriter(outputFile));
@@ -102,17 +144,17 @@ public class DssatXFileOutput extends DssatCommonOutput {
             // Output XFile
             // EXP.DETAILS Section
             sbGenData.append(String.format("*EXP.DETAILS: %1$-10s %2$s\r\n\r\n",
-                    getFileName(result, "").replaceAll("\\.", ""),
-                    getObjectOr(expData, "local_name", defValBlank).toString()));
+                    getFileName(exps.get(0), "").replaceAll("\\.", ""),
+                    getValueOr(expData, "local_name", defValBlank)));
 
             // GENERAL Section
             sbGenData.append("*GENERAL\r\n");
             // People
-            if (!getObjectOr(expData, "person_notes", "").equals("")) {
-                sbGenData.append(String.format("@PEOPLE\r\n %1$s\r\n", getObjectOr(expData, "person_notes", defValBlank).toString()));
+            if (!getValueOr(expData, "person_notes", "").equals("")) {
+                sbGenData.append(String.format("@PEOPLE\r\n %1$s\r\n", getValueOr(expData, "person_notes", defValBlank).toString()));
             }
             // Address
-            if (getObjectOr(expData, "institution", "").equals("")) {
+            if (getValueOr(expData, "institution", "").equals("")) {
 //                if (!getObjectOr(expData, "fl_loc_1", "").equals("")
 //                        && getObjectOr(expData, "fl_loc_2", "").equals("")
 //                        && getObjectOr(expData, "fl_loc_3", "").equals("")) {
@@ -122,12 +164,12 @@ public class DssatXFileOutput extends DssatCommonOutput {
 //                            getObjectOr(expData, "fl_loc_3", defValBlank).toString()));
 //                }
             } else {
-                sbGenData.append(String.format("@ADDRESS\r\n %1$s\r\n", getObjectOr(expData, "institution", defValBlank).toString()));
+                sbGenData.append(String.format("@ADDRESS\r\n %1$s\r\n", getValueOr(expData, "institution", defValBlank)));
             }
 
             // Site
-            if (!getObjectOr(expData, "site_name", "").equals("")) {
-                sbGenData.append(String.format("@SITE\r\n %1$s\r\n", getObjectOr(expData, "site_name", defValBlank).toString()));
+            if (!getValueOr(expData, "site_name", "").equals("")) {
+                sbGenData.append(String.format("@SITE\r\n %1$s\r\n", getValueOr(expData, "site_name", defValBlank)));
             }
             // Plot Info
             if (isPlotInfoExist(expData)) {
@@ -139,16 +181,16 @@ public class DssatXFileOutput extends DssatCommonOutput {
                         formatNumStr(5, expData, "pltln", defValR),
                         formatNumStr(5, expData, "pldr", defValI),
                         formatNumStr(5, expData, "pltsp", defValI),
-                        getObjectOr(expData, "pllay", defValC).toString(),
+                        getValueOr(expData, "pllay", defValC),
                         formatNumStr(5, expData, "pltha", defValR),
                         formatNumStr(5, expData, "plth#", defValI),
                         formatNumStr(5, expData, "plthl", defValR),
-                        getObjectOr(expData, "plthm", defValC).toString()));
+                        getValueOr(expData, "plthm", defValC)));
             }
             // Notes
-            if (!getObjectOr(expData, "tr_notes", "").equals("")) {
+            if (!getValueOr(expData, "tr_notes", "").equals("")) {
                 sbNotesData.append("@NOTES\r\n");
-                String notes = getObjectOr(expData, "tr_notes", defValC).toString();
+                String notes = getValueOr(expData, "tr_notes", defValC);
                 notes = notes.replaceAll("\\\\r\\\\n", "\r\n");
 
                 // If notes contain newline code, then write directly
@@ -167,84 +209,41 @@ public class DssatXFileOutput extends DssatCommonOutput {
             sbData.append("\r\n");
 
             // TREATMENT Section
-            sqArr = getDataList(expData, "dssat_sequence", "data");
-            evtArr = getDataList(expData, "management", "events");
-            ArrayList<HashMap> rootArr = getObjectOr(expData, "dssat_root", new ArrayList());
-            ArrayList<HashMap> meOrgArr = getDataList(expData, "dssat_environment_modification", "data");
-            ArrayList<HashMap> smOrgArr = getDataList(expData, "dssat_simulation_control", "data");
-            String seqId;
-            String em;
-            String sm;
             boolean isAnyDomeApplied = false;
             LinkedHashMap<String, String> appliedDomes = new LinkedHashMap<String, String>();
             sbData.append("*TREATMENTS                        -------------FACTOR LEVELS------------\r\n");
             sbData.append("@N R O C TNAME.................... CU FL SA IC MP MI MF MR MC MT ME MH SM\r\n");
-
-            // if there is no sequence info, create dummy data
-            if (sqArr.isEmpty()) {
-                sqArr.add(new HashMap());
-            }
-
-            // Set sequence related block info
-            for (int i = 0; i < sqArr.size(); i++) {
-                sqData = sqArr.get(i);
-                seqId = getValueOr(sqData, "seqid", defValBlank);
-                em = getValueOr(sqData, "em", defValBlank);
-                sm = getValueOr(sqData, "sm", defValBlank);
-                if (i < soilArr.size()) {
-                    soilData = soilArr.get(i);
-                } else if (soilArr.isEmpty()) {
-                    soilData = new HashMap();
-                } else {
-                    soilData = soilArr.get(0);
-                }
-                if (soilData == null) {
-                    soilData = new HashMap();
-                }
-                if (i < wthArr.size()) {
-                    wthData = wthArr.get(i);
-                } else if (wthArr.isEmpty()) {
-                    wthData = new HashMap();
-                } else {
-                    wthData = wthArr.get(0);
-                }
-                if (wthData == null) {
-                    wthData = new HashMap();
-                }
+            trNum = 0;
+            for (AceExperiment exp : exps) {
+                soilData = exp.getSoil();
+                wthData = exp.getWeather();
                 HashMap cuData = new HashMap();
                 HashMap flData = new HashMap();
                 HashMap mpData = new HashMap();
-                ArrayList<HashMap> miSubArr = new ArrayList<HashMap>();
-                ArrayList<HashMap> mfSubArr = new ArrayList<HashMap>();
-                ArrayList<HashMap> mrSubArr = new ArrayList<HashMap>();
-                ArrayList<HashMap> mcSubArr = new ArrayList<HashMap>();
-                ArrayList<HashMap> mtSubArr = new ArrayList<HashMap>();
-                ArrayList<HashMap> meSubArr = new ArrayList<HashMap>();
-                ArrayList<HashMap> mhSubArr = new ArrayList<HashMap>();
+                ArrayList<AceEvent> miSubArr = new ArrayList<AceEvent>();
+                ArrayList<AceEvent> mfSubArr = new ArrayList<AceEvent>();
+                ArrayList<AceEvent> mrSubArr = new ArrayList<AceEvent>();
+                ArrayList<AceEvent> mcSubArr = new ArrayList<AceEvent>();
+                ArrayList<AceEvent> mtSubArr = new ArrayList<AceEvent>();
+                ArrayList<AceEvent> mhSubArr = new ArrayList<AceEvent>();
                 HashMap smData = new HashMap();
-                HashMap rootData;
-                // Set exp root info
-                if (i < rootArr.size()) {
-                    rootData = rootArr.get(i);
-                } else {
-                    rootData = expData;
-                }
+                trNum++;
 
                 // Applied DOME Info
-                String trt_name = getValueOr(sqData, "trt_name", getValueOr(rootData, "trt_name", getValueOr(rootData, "exname", defValC)));
-                if (getValueOr(rootData, "dome_applied", "").equals("Y")) {
+                String trt_name = getValueOr(exp, "trt_name", getValueOr(exp, "exname", defValC));
+                if (getValueOr(exp, "dome_applied", "").equals("Y")) {
                     // If it comes with seasonal exname style
                     if (trt_name.matches(".+[^_]__\\d+$")) {
-                        trt_name = trt_name.replaceAll("__\\d+$", "_*");
-                        if (appliedDomes.get(trt_name + " Field    ") == null) {
-                            appliedDomes.put(trt_name + " Field    ", getAppliedDomes(rootData, "field"));
+                        String trt_name_update = trt_name.replaceAll("__\\d+$", "_*");
+                        if (appliedDomes.get(trt_name_update + " Field    ") == null) {
+                            appliedDomes.put(trt_name_update + " Field    ", getAppliedDomes(exp, "field"));
                         }
-                        if (appliedDomes.get(trt_name + " Seasonal ") == null) {
-                            appliedDomes.put(trt_name + " Seasonal ", getAppliedDomes(rootData, "seasonal"));
+                        if (appliedDomes.get(trt_name_update + " Seasonal ") == null) {
+                            appliedDomes.put(trt_name_update + " Seasonal ", getAppliedDomes(exp, "seasonal"));
                         }
                     } else {
-                        appliedDomes.put(trt_name + " Field    ", getAppliedDomes(rootData, "field"));
-                        appliedDomes.put(trt_name + " Seasonal ", getAppliedDomes(rootData, "seasonal"));
+                        appliedDomes.put(trt_name + " Field    ", getAppliedDomes(exp, "field"));
+                        appliedDomes.put(trt_name + " Seasonal ", getAppliedDomes(exp, "seasonal"));
                     }
                     isAnyDomeApplied = true;
                 } else {
@@ -252,84 +251,50 @@ public class DssatXFileOutput extends DssatCommonOutput {
                 }
 
                 // Set field info
-                copyItem(flData, rootData, "id_field");
-                flData.put("wst_id", getWthFileName(rootData));
-//                if (i < rootArr.size()) {
-//                    //                copyItem(flData, expData, "wst_id");
-//                    flData.put("wst_id", getWthFileName(rootData));
-//                } else {
-//                    flData.put("wst_id", getWthFileName(wthData));
-//                }
-                copyItem(flData, rootData, "flsl");
-                copyItem(flData, rootData, "flob");
-                copyItem(flData, rootData, "fl_drntype");
-                copyItem(flData, rootData, "fldrd");
-                copyItem(flData, rootData, "fldrs");
-                copyItem(flData, rootData, "flst");
-                if (soilData.get("sltx") != null) {
+                copyItem(flData, exp, "id_field");
+                flData.put("wst_id", getWthFileName(exp.getWeather()));
+                copyItem(flData, exp, "flsl");
+                copyItem(flData, exp, "flob");
+                copyItem(flData, exp, "fl_drntype");
+                copyItem(flData, exp, "fldrd");
+                copyItem(flData, exp, "fldrs");
+                copyItem(flData, exp, "flst");
+                if (soilData.getValue("sltx") != null) {
                     copyItem(flData, soilData, "sltx");
                 } else {
-                    copyItem(flData, rootData, "sltx");
+                    copyItem(flData, exp, "sltx");
                 }
                 copyItem(flData, soilData, "sldp");
-                copyItem(flData, rootData, "soil_id");
-                copyItem(flData, rootData, "fl_name");
-                copyItem(flData, rootData, "fl_lat");
-                copyItem(flData, rootData, "fl_long");
-                copyItem(flData, rootData, "flele");
-                copyItem(flData, rootData, "farea");
-                copyItem(flData, rootData, "fllwr");
-                copyItem(flData, rootData, "flsla");
-                copyItem(flData, getObjectOr(rootData, "dssat_info", new HashMap()), "flhst");
-                copyItem(flData, getObjectOr(rootData, "dssat_info", new HashMap()), "fhdur");
+                copyItem(flData, exp, "soil_id");
+                copyItem(flData, exp, "fl_name");
+                copyItem(flData, exp, "fl_lat");
+                copyItem(flData, exp, "fl_long");
+                copyItem(flData, exp, "flele");
+                copyItem(flData, exp, "farea");
+                copyItem(flData, exp, "fllwr");
+                copyItem(flData, exp, "flsla");
+                AceComponent dssatInfo = exp.getSubcomponent("dssat_info");
+                copyItem(flData, dssatInfo, "flhst");
+                copyItem(flData, dssatInfo, "fhdur");
                 // remove the "_trno" in the soil_id when soil analysis is available
                 String soilId = getValueOr(flData, "soil_id", "");
                 if (soilId.length() > 10 && soilId.matches("\\w+_\\d+") || soilId.length() < 8) {
-                    flData.put("soil_id", getSoilID(flData));
+                    flData.put("soil_id", getSoilID(exp.getSoil()));
                 }
                 flNum = setSecDataArr(flData, flArr);
 
-                // Set initial condition info
-                icNum = setSecDataArr(getObjectOr(rootData, "initial_conditions", new HashMap()), icArr);
-
-                // Set environment modification info
-                for (int j = 0; j < meOrgArr.size(); j++) {
-                    if (em.equals(meOrgArr.get(j).get("em"))) {
-                        HashMap tmp = new HashMap();
-                        tmp.putAll(meOrgArr.get(j));
-                        tmp.remove("em");
-                        meSubArr.add(tmp);
-                    }
-                }
-
                 // Set soil analysis info
-//                ArrayList<HashMap> icSubArr = getDataList(expData, "initial_condition", "soilLayer");
-                ArrayList<HashMap> soilLarys = getObjectOr(soilData, "soilLayer", new ArrayList());
-//                // If it is stored in the initial condition block
-//                if (isSoilAnalysisExist(icSubArr)) {
-//                    HashMap saData = new HashMap();
-//                    ArrayList<HashMap> saSubArr = new ArrayList<HashMap>();
-//                    HashMap saSubData;
-//                    for (int i = 0; i < icSubArr.size(); i++) {
-//                        saSubData = new HashMap();
-//                        copyItem(saSubData, icSubArr.get(i), "sabl", "icbl", false);
-//                        copyItem(saSubData, icSubArr.get(i), "sasc", "slsc", false);
-//                        saSubArr.add(saSubData);
-//                    }
-//                    copyItem(saData, soilData, "sadat");
-//                    saData.put("soilLayer", saSubArr);
-//                    saNum = setSecDataArr(saData, saArr);
-//                } else
-                // If it is stored in the soil block
+                AceRecordCollection soilLarys = soilData.getSoilLayers();
                 if (isSoilAnalysisExist(soilLarys)) {
                     HashMap saData = new HashMap();
                     ArrayList<HashMap> saSubArr = new ArrayList<HashMap>();
                     HashMap saSubData;
-                    for (int j = 0; j < soilLarys.size(); j++) {
+                    for (Iterator<AceRecord> it = soilLarys.iterator(); it.hasNext();) {
                         saSubData = new HashMap();
-                        copyItem(saSubData, soilLarys.get(j), "sabl", "sllb", false);
-                        copyItem(saSubData, soilLarys.get(j), "saoc", "sloc", false);
-                        copyItem(saSubData, soilLarys.get(j), "sasc", "slsc", false);
+                        AceRecord soilLayer = it.next();
+                        copyItem(saSubData, soilLayer, "sabl", "sllb");
+                        copyItem(saSubData, soilLayer, "saoc", "sloc");
+                        copyItem(saSubData, soilLayer, "sasc", "slsc");
                         saSubArr.add(saSubData);
                     }
                     copyItem(saData, soilData, "sadat");
@@ -340,84 +305,82 @@ public class DssatXFileOutput extends DssatCommonOutput {
                 }
 
                 // Set simulation control info
-                for (int j = 0; j < smOrgArr.size(); j++) {
-                    if (sm.equals(smOrgArr.get(j).get("sm"))) {
-                        smData.putAll(smOrgArr.get(j));
-                        smData.remove("sm");
-                        break;
-                    }
+                AceRecordCollection smOrgArr = exp.getSubcomponent("dssat_simulation_control").getRecords("data");
+                for (Iterator<AceRecord> it = smOrgArr.iterator(); it.hasNext();) {
+                    AceRecord smRecord = it.next();
+                    copyItem(smData, smRecord, "sm_general");
+                    copyItem(smData, smRecord, "sm_options");
+                    copyItem(smData, smRecord, "sm_methods");
+                    copyItem(smData, smRecord, "sm_management");
+                    copyItem(smData, smRecord, "sm_outputs");
+                    copyItem(smData, smRecord, "sm_planting");
+                    copyItem(smData, smRecord, "sm_irrigation");
+                    copyItem(smData, smRecord, "sm_nitrogen");
+                    copyItem(smData, smRecord, "sm_residues");
+                    copyItem(smData, smRecord, "sm_harvests");
+                    break; // TODO when start to support sequence translation, will remove this line
                 }
-//                if (smData.isEmpty()) {
-//                    smData.put("fertilizer", mfSubArr);
-//                    smData.put("irrigation", miSubArr);
-//                    smData.put("planting", mpData);
-//                }
-                copyItem(smData, rootData, "sdat");
-                copyItem(smData, getObjectOr(wthData, "weather", new HashMap()), "co2y");
+                copyItem(smData, exp, "sdat");
+                copyItem(smData, wthData, "co2y");
 
                 // Loop all event data
-                for (int j = 0; j < evtArr.size(); j++) {
-                    evtData = new HashMap();
-                    evtData.putAll(evtArr.get(j));
-                    // Check if it has same sequence number
-                    if (getValueOr(evtData, "seqid", defValBlank).equals(seqId)) {
-                        evtData.remove("seqid");
+                for (Iterator<AceEvent> it = exp.getEvents().iterator(); it.hasNext();) {
 
-                        // Planting event
-                        if (getValueOr(evtData, "event", defValBlank).equals("planting")) {
-                            // Set cultivals info
-                            copyItem(cuData, evtData, "cul_name");
-                            copyItem(cuData, evtData, "crid");
-                            copyItem(cuData, evtData, "cul_id");
-                            copyItem(cuData, evtData, "dssat_cul_id");
-                            copyItem(cuData, evtData, "rm");
-                            copyItem(cuData, evtData, "cul_notes");
-                            translateTo2BitCrid(cuData);
-                            // Set planting info
-                            mpData.putAll(evtData);
-                            mpData.remove("cul_name");
-                        } // irrigation event
-                        else if (getValueOr(evtData, "event", "").equals("irrigation")) {
-                            miSubArr.add(evtData);
-                        } // fertilizer event
-                        else if (getValueOr(evtData, "event", "").equals("fertilizer")) {
-                            mfSubArr.add(evtData);
-                        } // organic_matter event
-                        else if (getValueOr(evtData, "event", "").equals("organic_matter")) {   // P.S. change event name to organic-materials; Back to organic_matter again.
-                            mrSubArr.add(evtData);
-                        } // chemical event
-                        else if (getValueOr(evtData, "event", "").equals("chemical")) {
-                            mcSubArr.add(evtData);
-                        } // tillage event
-                        else if (getValueOr(evtData, "event", "").equals("tillage")) {
-                            mtSubArr.add(evtData);
-//                        } // environment_modification event
-//                        else if (getValueOr(evtData, "event", "").equals("environment_modification")) {
-//                            meSubArr.add(evtData);
-                        } // harvest event
-                        else if (getValueOr(evtData, "event", "").equals("harvest")) {
-                            mhSubArr.add(evtData);
-                            if (!getValueOr(evtData, "date", "").trim().equals("")) {
-                                smData.put("hadat_valid", "Y");
-                            }
-//                            copyItem(smData, evtData, "hadat", "date", false);
-                        } else {
+                    AceEvent evtData = it.next();
+                    // Planting event
+                    AceEventType evtType = evtData.getEventType();
+                    if (evtType.equals(AceEventType.ACE_PLANTING_EVENT)) {
+                        // Set cultivals info
+                        copyItem(cuData, evtData, "cul_name");
+                        copyItem(cuData, evtData, "crid");
+                        copyItem(cuData, evtData, "cul_id");
+                        copyItem(cuData, evtData, "dssat_cul_id");
+                        copyItem(cuData, evtData, "rm");
+                        copyItem(cuData, evtData, "cul_notes");
+                        translateTo2BitCrid(cuData, "crid");
+                        // Set planting info
+                        // To make comparision only on the planting information (without crop data), use HashMap to rebuild pure planting map
+                        copyItem(mpData, evtData, "date");
+                        copyItem(mpData, evtData, "pldae");
+                        copyItem(mpData, evtData, "plpop");
+                        copyItem(mpData, evtData, "plpoe");
+                        copyItem(mpData, evtData, "plma");
+                        copyItem(mpData, evtData, "plds");
+                        copyItem(mpData, evtData, "plrs");
+                        copyItem(mpData, evtData, "plrd");
+                        copyItem(mpData, evtData, "pldp");
+                        copyItem(mpData, evtData, "plmwt");
+                        copyItem(mpData, evtData, "page");
+                        copyItem(mpData, evtData, "plenv");
+                        copyItem(mpData, evtData, "plph");
+                        copyItem(mpData, evtData, "plspl");
+                        copyItem(mpData, evtData, "pl_name");
+                    } // irrigation event
+                    else if (evtType.equals(AceEventType.ACE_IRRIGATION_EVENT)) {
+                        miSubArr.add(evtData);
+                    } // fertilizer event
+                    else if (evtType.equals(AceEventType.ACE_FERTILIZER_EVENT)) {
+                        mfSubArr.add(evtData);
+                    } // organic_matter event
+                    else if (evtType.equals(AceEventType.ACE_ORGANIC_MATTER_EVENT)) {
+                        mrSubArr.add(evtData);
+                    } // chemical event
+                    else if (evtType.equals(AceEventType.ACE_CHEMICAL_EVENT)) {
+                        mcSubArr.add(evtData);
+                    } // tillage event
+                    else if (evtType.equals(AceEventType.ACE_TILLAGE_EVENT)) {
+                        mtSubArr.add(evtData);
+                    } // harvest event
+                    else if (evtType.equals(AceEventType.ACE_HARVEST_EVENT)) {
+                        mhSubArr.add(evtData);
+                        if (!getValueOr(evtData, "date", "").trim().equals("")) {
+                            smData.put("hadat_valid", "Y");
                         }
                     } else {
                     }
-
                 }
 
-                // Cancel for assume default value handling
-//                // If alternative fields are avaiable for fertilizer data
-//                if (mfSubArr.isEmpty()) {
-//                    if (!getObjectOr(result, "fen_tot", "").equals("")
-//                            || !getObjectOr(result, "fep_tot", "").equals("")
-//                            || !getObjectOr(result, "fek_tot", "").equals("")) {
-//                        mfSubArr.add(new HashMap());
-//                    }
-//                }
-
+                icNum = setSecDataArr(exp.getInitialConditions(), icArr);
                 cuNum = setSecDataArr(cuData, cuArr);
                 mpNum = setSecDataArr(mpData, mpArr);
                 miNum = setSecDataArr(miSubArr, miArr);
@@ -425,7 +388,7 @@ public class DssatXFileOutput extends DssatCommonOutput {
                 mrNum = setSecDataArr(mrSubArr, mrArr);
                 mcNum = setSecDataArr(mcSubArr, mcArr);
                 mtNum = setSecDataArr(mtSubArr, mtArr);
-                meNum = setSecDataArr(meSubArr, meArr);
+                emNum = setSecDataArr(exp.getSubcomponent("dssat_environment_modification"), emArr);
                 mhNum = setSecDataArr(mhSubArr, mhArr);
                 smNum = setSecDataArr(smData, smArr);
                 if (smNum == 0) {
@@ -433,11 +396,11 @@ public class DssatXFileOutput extends DssatCommonOutput {
                 }
 
                 sbData.append(String.format("%1$-3s%2$1s %3$1s %4$1s %5$-25s %6$2s %7$2s %8$2s %9$2s %10$2s %11$2s %12$2s %13$2s %14$2s %15$2s %16$2s %17$2s %18$2s\r\n",
-                        String.format("%2s", getValueOr(sqData, "trno", "1")), // For 3-bit treatment number
-                        getValueOr(sqData, "sq", "1").toString(), // P.S. default value here is based on document DSSAT vol2.pdf
-                        getValueOr(sqData, "op", "1").toString(),
-                        getValueOr(sqData, "co", "0").toString(),
-                        formatStr(25, sqData, "trt_name", getValueOr(rootData, "trt_name", getValueOr(rootData, "exname", defValC))),
+                        String.format("%2s", trNum), // For 3-bit treatment number
+                        "1", // P.S. default value here is based on document DSSAT vol2.pdf
+                        "1",
+                        "0",
+                        formatStr(25, trt_name, "trt_name"),
                         cuNum, //getObjectOr(data, "ge", defValI).toString(), 
                         flNum, //getObjectOr(data, "fl", defValI).toString(), 
                         saNum, //getObjectOr(data, "sa", defValI).toString(),
@@ -448,7 +411,7 @@ public class DssatXFileOutput extends DssatCommonOutput {
                         mrNum, //getObjectOr(data, "om", defValI).toString(),
                         mcNum, //getObjectOr(data, "ch", defValI).toString(),
                         mtNum, //getObjectOr(data, "ti", defValI).toString(),
-                        meNum, //getObjectOr(data, "em", defValI).toString(),
+                        emNum, //getObjectOr(data, "em", defValI).toString(),
                         mhNum, //getObjectOr(data, "ha", defValI).toString(),
                         smNum)); // 1
 
@@ -461,22 +424,11 @@ public class DssatXFileOutput extends DssatCommonOutput {
                 sbData.append("@C CR INGENO CNAME\r\n");
 
                 for (int idx = 0; idx < cuArr.size(); idx++) {
-                    secData = (HashMap) cuArr.get(idx);
-//                    String cul_id = defValC;
+                    HashMap secData = cuArr.get(idx);
                     String crid = getObjectOr(secData, "crid", "");
                     // Checl if necessary data is missing
                     if (crid.equals("")) {
                         sbError.append("! Warning: Incompleted record because missing data : [crid]\r\n");
-//                    } else {
-//                        // Set cultivar id a default value deponds on the crop id
-//                        if (crid.equals("MZ")) {
-//                            cul_id = "990002";
-//                        } else {
-//                            cul_id = "999999";
-//                        }
-//                    }
-//                    if (getObjectOr(secData, "cul_id", "").equals("")) {
-//                        sbError.append("! Warning: Incompleted record because missing data : [cul_id], and will use default value '").append(cul_id).append("'\r\n");
                     }
                     sbData.append(String.format("%1$2s %2$-2s %3$-6s %4$s\r\n",
                             idx + 1, //getObjectOr(secData, "ge", defValI).toString(),
@@ -512,7 +464,7 @@ public class DssatXFileOutput extends DssatCommonOutput {
                 sbError.append("! Warning: There is no field data in the experiment.\r\n");
             }
             for (int idx = 0; idx < flArr.size(); idx++) {
-                secData = (HashMap) flArr.get(idx);
+                HashMap secData = flArr.get(idx);
                 // Check if the necessary is missing
                 String wst_id = getObjectOr(secData, "wst_id", "");
                 if (wst_id.equals("")) {
@@ -563,22 +515,22 @@ public class DssatXFileOutput extends DssatCommonOutput {
 
                 for (int idx = 0; idx < saArr.size(); idx++) {
 
-                    secData = (HashMap) saArr.get(idx);
+                    HashMap secData = (HashMap) saArr.get(idx);
                     sbData.append("@A SADAT  SMHB  SMPX  SMKE  SANAME\r\n");
                     sbData.append(String.format("%1$2s %2$5s %3$5s %4$5s %5$5s  %6$s\r\n",
                             idx + 1, //getObjectOr(secData, "sa", defValI).toString(),
-                            formatDateStr(getObjectOr(secData, "sadat", defValD).toString()),
-                            getObjectOr(secData, "samhb", defValC).toString(),
-                            getObjectOr(secData, "sampx", defValC).toString(),
-                            getObjectOr(secData, "samke", defValC).toString(),
-                            getObjectOr(secData, "sa_name", defValC).toString()));
+                            formatDateStr(getValueOr(secData, "sadat", defValD)),
+                            getValueOr(secData, "samhb", defValC),
+                            getValueOr(secData, "sampx", defValC),
+                            getValueOr(secData, "samke", defValC),
+                            getValueOr(secData, "sa_name", defValC)));
 
-                    subDataArr = (ArrayList) getObjectOr(secData, "soilLayer", new ArrayList());
+                    ArrayList<HashMap> subDataArr = getObjectOr(secData, "soilLayer", new ArrayList());
                     if (!subDataArr.isEmpty()) {
                         sbData.append("@A  SABL  SADM  SAOC  SANI SAPHW SAPHB  SAPX  SAKE  SASC\r\n");
                     }
                     for (int j = 0; j < subDataArr.size(); j++) {
-                        subData = (HashMap) subDataArr.get(j);
+                        HashMap subData = subDataArr.get(j);
                         sbData.append(String.format("%1$2s %2$5s %3$5s %4$5s %5$5s %6$5s %7$5s %8$5s %9$5s %10$5s\r\n",
                                 idx + 1, //getObjectOr(subData, "sa", defValI).toString(),
                                 formatNumStr(5, subData, "sabl", defValR),
@@ -603,13 +555,12 @@ public class DssatXFileOutput extends DssatCommonOutput {
 
                 for (int idx = 0; idx < icArr.size(); idx++) {
 
-                    secData = (HashMap) icArr.get(idx);
-                    translateTo2BitCrid(secData, "icpcr");
+                    AceInitialConditions secData = icArr.get(idx);
                     sbData.append("@C   PCR ICDAT  ICRT  ICND  ICRN  ICRE  ICWD ICRES ICREN ICREP ICRIP ICRID ICNAME\r\n");
                     sbData.append(String.format("%1$2s %2$5s %3$5s %4$5s %5$5s %6$5s %7$5s %8$5s %9$5s %10$5s %11$5s %12$5s %13$5s %14$s\r\n",
                             idx + 1, //getObjectOr(secData, "ic", defValI).toString(),
-                            getObjectOr(secData, "icpcr", defValC).toString(),
-                            formatDateStr(getObjectOr(secData, "icdat", getPdate(result)).toString()),
+                            translateTo2BitCrid(secData, "icpcr", defValC),
+                            formatDateStr(getValueOr(secData, "icdat", getPdate(exps.get(0)))),
                             formatNumStr(5, secData, "icrt", defValR),
                             formatNumStr(5, secData, "icnd", defValR),
                             formatNumStr(5, secData, "icrz#", defValR),
@@ -620,14 +571,14 @@ public class DssatXFileOutput extends DssatCommonOutput {
                             formatNumStr(5, secData, "icrp", defValR),
                             formatNumStr(5, secData, "icrip", defValR),
                             formatNumStr(5, secData, "icrdp", defValR),
-                            getObjectOr(secData, "ic_name", defValC).toString()));
+                            getValueOr(secData, "ic_name", defValC)));
 
-                    subDataArr = (ArrayList) getObjectOr(secData, "soilLayer", new ArrayList());
+                    AceRecordCollection subDataArr = secData.getSoilLayers();
                     if (!subDataArr.isEmpty()) {
                         sbData.append("@C  ICBL  SH2O  SNH4  SNO3\r\n");
                     }
-                    for (int j = 0; j < subDataArr.size(); j++) {
-                        subData = (HashMap) subDataArr.get(j);
+                    for (Iterator<AceRecord> it = subDataArr.iterator(); it.hasNext();) {
+                        AceRecord subData = it.next();
                         sbData.append(String.format("%1$2s %2$5s %3$5s %4$5s %5$5s\r\n",
                                 idx + 1, //getObjectOr(subData, "ic", defValI).toString(),
                                 formatNumStr(5, subData, "icbl", defValR),
@@ -646,7 +597,7 @@ public class DssatXFileOutput extends DssatCommonOutput {
 
                 for (int idx = 0; idx < mpArr.size(); idx++) {
 
-                    secData = (HashMap) mpArr.get(idx);
+                    HashMap secData = mpArr.get(idx);
                     // Check if necessary data is missing
                     String pdate = getObjectOr(secData, "date", "");
                     if (pdate.equals("")) {
@@ -711,12 +662,12 @@ public class DssatXFileOutput extends DssatCommonOutput {
 
                 for (int idx = 0; idx < miArr.size(); idx++) {
 
-//                    secData = (ArrayList) miArr.get(idx);
-                    subDataArr = (ArrayList) miArr.get(idx);
+                    ArrayList<AceEvent> subDataArr = miArr.get(idx);
+                    AceEvent subData;
                     if (!subDataArr.isEmpty()) {
-                        subData = (HashMap) subDataArr.get(0);
+                        subData = subDataArr.get(0);
                     } else {
-                        subData = new HashMap();
+                        subData = new AceEvent(AceFunctions.getBlankComponent());
                     }
                     sbData.append("@I  EFIR  IDEP  ITHR  IEPT  IOFF  IAME  IAMT IRNAME\r\n");
                     sbData.append(String.format("%1$2s %2$5s %3$5s %4$5s %5$5s %6$5s %7$5s %8$5s %9$s\r\n",
@@ -725,20 +676,20 @@ public class DssatXFileOutput extends DssatCommonOutput {
                             formatNumStr(5, subData, "irmdp", defValR),
                             formatNumStr(5, subData, "irthr", defValR),
                             formatNumStr(5, subData, "irept", defValR),
-                            getObjectOr(subData, "irstg", defValC).toString(),
-                            getObjectOr(subData, "iame", defValC).toString(),
+                            getValueOr(subData, "irstg", defValC),
+                            getValueOr(subData, "iame", defValC),
                             formatNumStr(5, subData, "iamt", defValR),
-                            getObjectOr(subData, "ir_name", defValC).toString()));
+                            getValueOr(subData, "ir_name", defValC)));
 
                     if (!subDataArr.isEmpty()) {
                         sbData.append("@I IDATE  IROP IRVAL\r\n");
                     }
                     for (int j = 0; j < subDataArr.size(); j++) {
-                        subData = (HashMap) subDataArr.get(j);
+                        subData = subDataArr.get(j);
                         sbData.append(String.format("%1$2s %2$5s %3$-5s %4$5s\r\n",
                                 idx + 1, //getObjectOr(subData, "ir", defValI).toString(),
-                                formatDateStr(getObjectOr(subData, "date", defValD).toString()), // P.S. idate -> date
-                                getObjectOr(subData, "irop", defValC).toString(),
+                                formatDateStr(getValueOr(subData, "date", defValD)), // P.S. idate -> date
+                                getValueOr(subData, "irop", defValC),
                                 formatNumStr(5, subData, "irval", defValR)));
                     }
                 }
@@ -758,10 +709,10 @@ public class DssatXFileOutput extends DssatCommonOutput {
 //                }
 
                 for (int idx = 0; idx < mfArr.size(); idx++) {
-                    secDataArr = (ArrayList) mfArr.get(idx);
+                    ArrayList<AceEvent> secDataArr = mfArr.get(idx);
 
                     for (int i = 0; i < secDataArr.size(); i++) {
-                        secData = (HashMap) secDataArr.get(i);
+                        AceEvent secData = secDataArr.get(i);
 //                        if (getObjectOr(secData, "fdate", "").equals("")) {
 //                            sbError.append("! Warning: missing data : [fdate], and will automatically use planting value '").append(pdate).append("'\r\n");
 //                        }
@@ -785,17 +736,17 @@ public class DssatXFileOutput extends DssatCommonOutput {
 //                        }
                         sbData.append(String.format("%1$2s %2$5s %3$5s %4$5s %5$5s %6$5s %7$5s %8$5s %9$5s %10$5s %11$5s %12$s\r\n",
                                 idx + 1, //getObjectOr(data, "fe", defValI).toString(),
-                                formatDateStr(getObjectOr(secData, "date", defValD).toString()), // P.S. fdate -> date
-                                getObjectOr(secData, "fecd", defValC).toString(), // P.S. Set default value as "FE005"(Cancelled)
-                                getObjectOr(secData, "feacd", defValC).toString(), // P.S. Set default value as "AP002"(Cancelled)
+                                formatDateStr(getValueOr(secData, "date", defValD)), // P.S. fdate -> date
+                                getValueOr(secData, "fecd", defValC), // P.S. Set default value as "FE005"(Cancelled)
+                                getValueOr(secData, "feacd", defValC), // P.S. Set default value as "AP002"(Cancelled)
                                 formatNumStr(5, secData, "fedep", defValR), // P.S. Set default value as "10"(Cancelled)
                                 formatNumStr(5, secData, "feamn", defValR), // P.S. Set default value to use the value of FEN_TOT in meta data(Cancelled)
                                 formatNumStr(5, secData, "feamp", defValR), // P.S. Set default value to use the value of FEP_TOT in meta data(Cancelled)
                                 formatNumStr(5, secData, "feamk", defValR), // P.S. Set default value to use the value of FEK_TOT in meta data(Cancelled)
                                 formatNumStr(5, secData, "feamc", defValR),
                                 formatNumStr(5, secData, "feamo", defValR),
-                                getObjectOr(secData, "feocd", defValC).toString(),
-                                getObjectOr(secData, "fe_name", defValC).toString()));
+                                getValueOr(secData, "feocd", defValC),
+                                getValueOr(secData, "fe_name", defValC)));
 
                     }
                 }
@@ -808,14 +759,14 @@ public class DssatXFileOutput extends DssatCommonOutput {
                 sbData.append("@R RDATE  RCOD  RAMT  RESN  RESP  RESK  RINP  RDEP  RMET RENAME\r\n");
 
                 for (int idx = 0; idx < mrArr.size(); idx++) {
-                    secDataArr = (ArrayList) mrArr.get(idx);
+                    ArrayList<AceEvent> secDataArr = (ArrayList) mrArr.get(idx);
 
                     for (int i = 0; i < secDataArr.size(); i++) {
-                        secData = (HashMap) secDataArr.get(i);
+                        AceEvent secData = secDataArr.get(i);
                         sbData.append(String.format("%1$2s %2$5s %3$-5s %4$5s %5$5s %6$5s %7$5s %8$5s %9$5s %10$5s %11$s\r\n",
                                 idx + 1, //getObjectOr(secData, "om", defValI).toString(),
-                                formatDateStr(getObjectOr(secData, "date", defValD).toString()), // P.S. omdat -> date
-                                getObjectOr(secData, "omcd", defValC).toString(),
+                                formatDateStr(getValueOr(secData, "date", defValD)), // P.S. omdat -> date
+                                getValueOr(secData, "omcd", defValC),
                                 formatNumStr(5, secData, "omamt", defValR),
                                 formatNumStr(5, secData, "omn%", defValR),
                                 formatNumStr(5, secData, "omp%", defValR),
@@ -823,7 +774,7 @@ public class DssatXFileOutput extends DssatCommonOutput {
                                 formatNumStr(5, secData, "ominp", defValR),
                                 formatNumStr(5, secData, "omdep", defValR),
                                 formatNumStr(5, secData, "omacd", defValR),
-                                getObjectOr(secData, "om_name", defValC).toString()));
+                                getValueOr(secData, "om_name", defValC)));
                     }
                 }
                 sbData.append("\r\n");
@@ -835,19 +786,19 @@ public class DssatXFileOutput extends DssatCommonOutput {
                 sbData.append("@C CDATE CHCOD CHAMT  CHME CHDEP   CHT..CHNAME\r\n");
 
                 for (int idx = 0; idx < mcArr.size(); idx++) {
-                    secDataArr = (ArrayList) mcArr.get(idx);
+                    ArrayList<AceEvent> secDataArr = (ArrayList) mcArr.get(idx);
 
                     for (int i = 0; i < secDataArr.size(); i++) {
-                        secData = (HashMap) secDataArr.get(i);
+                        AceEvent secData = secDataArr.get(i);
                         sbData.append(String.format("%1$2s %2$5s %3$5s %4$5s %5$5s %6$5s %7$5s  %8$s\r\n",
                                 idx + 1, //getObjectOr(secData, "ch", defValI).toString(),
-                                formatDateStr(getObjectOr(secData, "date", defValD).toString()), // P.S. cdate -> date
-                                getObjectOr(secData, "chcd", defValC).toString(),
+                                formatDateStr(getValueOr(secData, "date", defValD)), // P.S. cdate -> date
+                                getValueOr(secData, "chcd", defValC).toString(),
                                 formatNumStr(5, secData, "chamt", defValR),
-                                getObjectOr(secData, "chacd", defValC).toString(),
-                                getObjectOr(secData, "chdep", defValC).toString(),
-                                getObjectOr(secData, "ch_targets", defValC).toString(),
-                                getObjectOr(secData, "ch_name", defValC).toString()));
+                                getValueOr(secData, "chacd", defValC),
+                                getValueOr(secData, "chdep", defValC),
+                                getValueOr(secData, "ch_targets", defValC),
+                                getValueOr(secData, "ch_name", defValC)));
                     }
                 }
                 sbData.append("\r\n");
@@ -859,16 +810,16 @@ public class DssatXFileOutput extends DssatCommonOutput {
                 sbData.append("@T TDATE TIMPL  TDEP TNAME\r\n");
 
                 for (int idx = 0; idx < mtArr.size(); idx++) {
-                    secDataArr = (ArrayList) mtArr.get(idx);
+                    ArrayList<AceEvent> secDataArr = (ArrayList) mtArr.get(idx);
 
                     for (int i = 0; i < secDataArr.size(); i++) {
-                        secData = (HashMap) secDataArr.get(i);
+                        AceEvent secData = secDataArr.get(i);
                         sbData.append(String.format("%1$2s %2$5s %3$5s %4$5s %5$s\r\n",
                                 idx + 1, //getObjectOr(secData, "ti", defValI).toString(),
-                                formatDateStr(getObjectOr(secData, "date", defValD).toString()), // P.S. tdate -> date
-                                getObjectOr(secData, "tiimp", defValC).toString(),
+                                formatDateStr(getValueOr(secData, "date", defValD)), // P.S. tdate -> date
+                                getValueOr(secData, "tiimp", defValC),
                                 formatNumStr(5, secData, "tidep", defValR),
-                                getObjectOr(secData, "ti_name", defValC).toString()));
+                                getValueOr(secData, "ti_name", defValC)));
 
                     }
                 }
@@ -876,17 +827,17 @@ public class DssatXFileOutput extends DssatCommonOutput {
             }
 
             // ENVIRONMENT MODIFICATIONS Section
-            if (!meArr.isEmpty()) {
+            if (!emArr.isEmpty()) {
                 sbData.append("*ENVIRONMENT MODIFICATIONS\r\n");
                 sbData.append("@E ODATE EDAY  ERAD  EMAX  EMIN  ERAIN ECO2  EDEW  EWIND ENVNAME\r\n");
 
-                for (int idx = 0, cnt = 1; idx < meArr.size(); idx++) {
-                    secDataArr = (ArrayList) meArr.get(idx);
-                    for (int i = 0; i < secDataArr.size(); i++) {
-                        secData = (HashMap) secDataArr.get(i);
+                for (int idx = 0, cnt = 1; idx < emArr.size(); idx++) {
+                    AceRecordCollection secDataArr = emArr.get(idx).getRecords("data");
+                    for (Iterator<AceRecord> it = secDataArr.iterator(); it.hasNext();) {
+                        AceRecord secData = it.next();
                         sbData.append(String.format("%1$2s%2$s\r\n",
                                 cnt,
-                                secData.get("em_data")));
+                                secData.getValueOr("em_data", "")));
 //                        sbData.append(String.format("%1$2s%2$s\r\n",
 //                                idx + 1,
 //                                (String) secDataArr.get(i)));
@@ -921,19 +872,19 @@ public class DssatXFileOutput extends DssatCommonOutput {
                 sbData.append("@H HDATE  HSTG  HCOM HSIZE   HPC  HBPC HNAME\r\n");
 
                 for (int idx = 0; idx < mhArr.size(); idx++) {
-                    secDataArr = (ArrayList) mhArr.get(idx);
+                    ArrayList<AceEvent> secDataArr = (ArrayList) mhArr.get(idx);
 
                     for (int i = 0; i < secDataArr.size(); i++) {
-                        secData = (HashMap) secDataArr.get(i);
+                        AceEvent secData = secDataArr.get(i);
                         sbData.append(String.format("%1$2s %2$5s %3$-5s %4$-5s %5$-5s %6$5s %7$5s %8$s\r\n",
                                 idx + 1, //getObjectOr(secData, "ha", defValI).toString(),
-                                formatDateStr(getObjectOr(secData, "date", defValD).toString()), // P.S. hdate -> date
-                                getObjectOr(secData, "hastg", defValC).toString(),
-                                getObjectOr(secData, "hacom", defValC).toString(),
-                                getObjectOr(secData, "hasiz", defValC).toString(),
+                                formatDateStr(getValueOr(secData, "date", defValD)), // P.S. hdate -> date
+                                getValueOr(secData, "hastg", defValC),
+                                getValueOr(secData, "hacom", defValC),
+                                getValueOr(secData, "hasiz", defValC),
                                 formatNumStr(5, secData, "hap%", defValR),
                                 formatNumStr(5, secData, "hab%", defValR),
-                                getObjectOr(secData, "ha_name", defValC).toString()));
+                                getValueOr(secData, "ha_name", defValC)));
 
                     }
                 }
@@ -946,7 +897,7 @@ public class DssatXFileOutput extends DssatCommonOutput {
                 // Loop all the simulation control records
                 sbData.append("*SIMULATION CONTROLS\r\n");
                 for (int idx = 0; idx < smArr.size(); idx++) {
-                    secData = (HashMap) smArr.get(idx);
+                    HashMap secData = (HashMap) smArr.get(idx);
                     sbData.append(createSMMAStr(idx + 1, secData));
                 }
 
@@ -1158,15 +1109,52 @@ public class DssatXFileOutput extends DssatCommonOutput {
     /**
      * Get index value of the record and set new id value in the array
      *
+     * @param m sub data
+     * @param arr array of sub data
+     * @return current index value of the sub data
+     */
+    private int setSecDataArr(AceComponent m, ArrayList arr) {
+        try {
+            if (!m.keySet().isEmpty()) {
+                for (int j = 0; j < arr.size(); j++) {
+                    if (compare((AceComponent) arr.get(j), m)) {
+                        return j + 1;
+                    }
+                }
+                arr.add(m);
+                return arr.size();
+            } else {
+                return 0;
+            }
+        } catch (IOException ex) {
+            return 0;
+        }
+    }
+
+    private boolean compare(AceComponent a, AceComponent b) {
+        if (a != null && b != null) {
+            try {
+                return a.getRawComponentHash().equals(b.getRawComponentHash());
+            } catch (IOException ex) {
+                return false;
+            }
+        } else {
+            return a == b;
+        }
+    }
+
+    /**
+     * Get index value of the record and set new id value in the array
+     *
      * @param inArr sub array of data
      * @param outArr array of sub data
      * @return current index value of the sub data
      */
-    private int setSecDataArr(ArrayList inArr, ArrayList outArr) {
+    private int setSecDataArr(ArrayList<AceEvent> inArr, ArrayList<ArrayList<AceEvent>> outArr) {
 
         if (!inArr.isEmpty()) {
             for (int j = 0; j < outArr.size(); j++) {
-                if (outArr.get(j).equals(inArr)) {
+                if (compare(outArr.get(j), inArr)) {
                     return j + 1;
                 }
             }
@@ -1177,13 +1165,26 @@ public class DssatXFileOutput extends DssatCommonOutput {
         }
     }
 
+    private boolean compare(ArrayList<AceEvent> a, ArrayList<AceEvent> b) {
+        if (a != null && b != null && a.size() == b.size()) {
+            for (int i = 0; i < a.size(); i++) {
+                if (!compare(a.get(i), b.get(i))) {
+                    return false;
+                }
+            }
+            return true;
+        } else {
+            return a == b;
+        }
+    }
+
     /**
      * To check if there is plot info data existed in the experiment
      *
      * @param expData experiment data holder
      * @return the boolean value for if plot info exists
      */
-    private boolean isPlotInfoExist(Map expData) {
+    private boolean isPlotInfoExist(AceExperiment expData) {
 
         String[] plotIds = {"plta", "pltr#", "pltln", "pldr", "pltsp", "pllay", "pltha", "plth#", "plthl", "plthm"};
         for (int i = 0; i < plotIds.length; i++) {
@@ -1200,28 +1201,14 @@ public class DssatXFileOutput extends DssatCommonOutput {
      * @param expData initial condition layer data array
      * @return the boolean value for if soil analysis info exists
      */
-    private boolean isSoilAnalysisExist(ArrayList<HashMap> icSubArr) {
+    private boolean isSoilAnalysisExist(AceRecordCollection icSubArr) {
 
-        for (int i = 0; i < icSubArr.size(); i++) {
-            if (!getValueOr(icSubArr.get(i), "slsc", "").equals("")) {
+        for (Iterator<AceRecord> it = icSubArr.iterator(); it.hasNext();) {
+            if (!getValueOr(it.next(), "slsc", "").equals("")) {
                 return true;
             }
-
         }
         return false;
-    }
-
-    /**
-     * Get sub data array from experiment data object
-     *
-     * @param expData experiment data holder
-     * @param blockName top level block name
-     * @param dataListName sub array name
-     * @return sub data array
-     */
-    private ArrayList<HashMap> getDataList(Map expData, String blockName, String dataListName) {
-        HashMap dataBlock = getObjectOr(expData, blockName, new HashMap());
-        return getObjectOr(dataBlock, dataListName, new ArrayList<HashMap>());
     }
 
     /**
@@ -1230,11 +1217,12 @@ public class DssatXFileOutput extends DssatCommonOutput {
      * @param cuData the cultivar data record
      * @param id the field id for contain crop id info
      */
-    private void translateTo2BitCrid(HashMap cuData, String id) {
-        String crid = getObjectOr(cuData, id, "");
+    private String translateTo2BitCrid(AceComponent cuData, String id, String defVal) {
+        String crid = getValueOr(cuData, id, "");
         if (!crid.equals("")) {
-//            DssatCRIDHelper crids = new DssatCRIDHelper();
-            cuData.put(id, DssatCRIDHelper.get2BitCrid(crid));
+            return DssatCRIDHelper.get2BitCrid(crid);
+        } else {
+            return defVal;
         }
     }
 
@@ -1242,33 +1230,13 @@ public class DssatXFileOutput extends DssatCommonOutput {
      * Try to translate 3-bit crid to 2-bit version stored in the map
      *
      * @param cuData the cultivar data record
+     * @param id the field id for contain crop id info
      */
-    private void translateTo2BitCrid(HashMap cuData) {
-        translateTo2BitCrid(cuData, "crid");
-    }
-
-    /**
-     * Get soil/weather data from data holder
-     *
-     * @param expData The experiment data holder
-     * @param key The key name for soil/weather section
-     * @return
-     */
-    private ArrayList readSWData(HashMap expData, String key) {
-        ArrayList ret;
-        Object soil = expData.get(key);
-        if (soil != null) {
-            if (soil instanceof ArrayList) {
-                ret = (ArrayList) soil;
-            } else {
-                ret = new ArrayList();
-                ret.add(soil);
-            }
-        } else {
-            ret = new ArrayList();
+    private void translateTo2BitCrid(Map cuData, String id) {
+        String crid = getValueOr(cuData, id, "");
+        if (!crid.equals("")) {
+            cuData.put(id, DssatCRIDHelper.get2BitCrid(crid));
         }
-
-        return ret;
     }
 
     private String replaceSMStr(String smStr, String val, int start) {
@@ -1281,7 +1249,7 @@ public class DssatXFileOutput extends DssatCommonOutput {
         return smStr;
     }
 
-    private String getAppliedDomes(HashMap data, String domeType) {
+    private String getAppliedDomes(AceExperiment data, String domeType) {
         if (getValueOr(data, domeType + "_dome_applied", "").equals("Y")) {
             // Get dome ids
             String domeKey = "";

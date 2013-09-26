@@ -6,6 +6,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import org.agmip.ace.AceComponent;
+import org.agmip.ace.AceExperiment;
 import org.agmip.ace.AceRecord;
 import org.agmip.ace.AceRecordCollection;
 import org.agmip.ace.AceWeather;
@@ -29,12 +31,30 @@ public class DssatWthFileHelper {
      * @param wthData weather data holder
      * @return the weather file name
      */
-    public String createWthFileName(Object wthData) throws IOException {
+    public String createWthFileName(Map wthData) throws IOException {
+        return createWthFileName((Object) wthData);
+    }
+
+    /**
+     * Generate the weather file name for auto-generating (extend name not
+     * included)
+     *
+     * @param wthData weather data holder
+     * @return the weather file name
+     */
+    public String createWthFileName(AceWeather wthData) throws IOException {
+        return createWthFileName((Object) wthData);
+    }
+
+    private String createWthFileName(Object wthData) throws IOException {
 
         if (wthData instanceof Map) {
             wthData = MapUtil.getObjectOr((Map) wthData, "weather", wthData);
         }
         String hash = getValueOr(wthData, "wst_id", "").toString();
+        if (hash.length() == 8) {
+            return hash;
+        }
         if (hashToName.containsKey(hash)) {
             return hashToName.get(hash);
         } else {
@@ -129,12 +149,12 @@ public class DssatWthFileHelper {
                 yearDur = getWthYearDuration(yearDur, startYear, endYear);
             }
         } else if (wthData instanceof AceWeather) {
-            AceRecordCollection dailys = ((AceWeather)wthData).getDailyWeather();
+            AceRecordCollection dailys = ((AceWeather) wthData).getDailyWeather();
             Iterator<AceRecord> it = dailys.iterator();
             if (it.hasNext()) {
                 AceRecord daily = it.next();
                 String startYear = daily.getValueOr("w_date", "    ").substring(2, 4).trim();
-                while(it.hasNext()) {
+                while (it.hasNext()) {
                     daily = it.next();
                 }
                 String endYear = daily.getValueOr("w_date", "    ").substring(2, 4).trim();

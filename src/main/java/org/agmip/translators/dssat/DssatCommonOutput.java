@@ -533,7 +533,11 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
      * @param data experiment data holder or weather data holder
      * @return the weather file name
      */
-    protected String getWthFileName(Object data) throws IOException {
+    protected String getWthFileName(AceWeather data) throws IOException {
+        return wthHelper.createWthFileName(data);
+    }
+
+    protected String getWthFileName(HashMap data) throws IOException {
 
 //        String agmipFileHack = getValueOr(wthFile, "wst_name", "");
 //        if (agmipFileHack.length() == 8) {
@@ -556,7 +560,11 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
      * @param data experiment data holder or weather data holder
      * @return the weather file name
      */
-    protected String getSoilID(Object data) {
+    protected String getSoilID(AceSoil data) {
+        return soilHelper.getSoilID(data);
+    }
+
+    protected String getSoilID(HashMap data) {
         return soilHelper.getSoilID(data);
 //        String ret = getObjectOr(data, "soil_id", "");
 //        ret = ret.trim();

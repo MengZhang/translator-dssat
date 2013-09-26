@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import org.agmip.ace.AceComponent;
 import org.agmip.ace.LookupCodes;
 import org.agmip.core.types.TranslatorInput;
 import org.slf4j.Logger;
@@ -963,10 +964,26 @@ public abstract class DssatCommonInput implements TranslatorInput {
         }
     }
 
+    public static void copyItem(HashMap to, AceComponent from, String key) {
+        copyItem(to, from, key, key);
+    }
+
+    public static void copyItem(HashMap to, AceComponent from, String toKey, String fromKey) {
+        String val;
+        try {
+            val = from.getValue(fromKey);
+        } catch (IOException e) {
+            val = null;
+        }
+        if (val != null) {
+            to.put(toKey, val);
+        }
+    }
+
     protected String getStackTrace(Throwable aThrowable) {
         return DssatCommonOutput.getStackTrace(aThrowable);
     }
-    
+
     protected String transSltx(String sltx) {
         String ret = LookupCodes.lookupCode("sltx", sltx, "code", "Alternate").toUpperCase();
         LOG.debug("{} is translated to {}", sltx, ret);
