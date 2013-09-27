@@ -4,10 +4,11 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.util.HashMap;
+import org.agmip.ace.io.AceParser;
+import org.agmip.util.JSONAdapter;
 import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,7 +49,7 @@ public class DssatXFileTest {
 //        bo.close();
 //        f.delete();
 
-        obDssatXFileOutput.writeFile("output", result);
+        obDssatXFileOutput.write(new File("output"), AceParser.parse(JSONAdapter.toJSON(result)));
         File file = obDssatXFileOutput.getOutputFile();
         if (file != null) {
             assertTrue(file.exists());

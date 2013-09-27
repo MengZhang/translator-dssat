@@ -5,10 +5,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.HashMap;
+import org.agmip.ace.io.AceParser;
 import org.agmip.util.JSONAdapter;
-import static org.agmip.util.MapUtil.getObjectOr;
 import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
@@ -23,15 +22,16 @@ import org.junit.Test;
 public class DssatCulFileTest {
 
     DssatCulFileOutput obOutput;
-    DssatCulFileInput obInput;
+    DssatControllerInput obInput;
+//    DssatCulFileInput obInput;
     URL resource;
 
     @Before
     public void setUp() throws Exception {
         obOutput = new DssatCulFileOutput();
-        obInput = new DssatCulFileInput();
+        obInput = new DssatControllerInput();
         resource = this.getClass().getResource("/APAN9304_PNX.zip");
-        
+
     }
 
     @Test
@@ -47,9 +47,7 @@ public class DssatCulFileTest {
 //        bo.close();
 //        f.delete();
 
-        ArrayList<HashMap> expArr = getObjectOr(result, "experiments", new ArrayList());
-        expArr.get(0).put("exname", "APAN9304PN");
-        obOutput.writeFile("", expArr.get(0));
+        obOutput.write(new File("output"), AceParser.parse(JSONAdapter.toJSON(result)));
         File file = obOutput.getOutputFile();
         if (file != null) {
             assertTrue(file.exists());

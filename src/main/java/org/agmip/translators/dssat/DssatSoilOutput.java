@@ -36,25 +36,13 @@ public class DssatSoilOutput extends DssatCommonOutput {
     /**
      * DSSAT Soil Data Output method
      *
-     * @param arg0 file output path
-     * @param result data holder object
-     */
-    @Override
-    public void writeFile(String arg0, Map result) throws IOException {
-        AceDataset ace = AceParser.parse(JSONAdapter.toJSON(result));
-        write(new File(arg0), ace);
-    }
-
-    /**
-     * DSSAT Soil Data Output method
-     *
      * @param outDir the directory to output the translated files.
      * @param ace the source ACE Dataset
      * @param components subcomponents to translate
      *
      * @return the list of generated files
      */
-//    @Override
+    @Override
     public List<File> write(File outDir, AceDataset ace, AceBaseComponentType... components) throws IOException {
 
         ace.linkDataset();

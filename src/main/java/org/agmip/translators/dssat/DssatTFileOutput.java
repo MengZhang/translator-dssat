@@ -20,21 +20,9 @@ import org.slf4j.LoggerFactory;
  * @author Meng Zhang
  * @version 1.0
  */
-public class DssatTFileOutput extends DssatCommonOutput {
+public class DssatTFileOutput extends DssatCommonOutput implements DssatXATFileOutputI {
 
     private static final Logger LOG = LoggerFactory.getLogger(DssatTFileOutput.class);
-
-    /**
-     * DSSAT Time series Observation Data Output method
-     *
-     * @param arg0 file output path
-     * @param result data holder object
-     */
-    @Override
-    public void writeFile(String arg0, Map result) throws IOException {
-        AceDataset ace = AceParser.parse(JSONAdapter.toJSON(result));
-        write(new File(arg0), ace);
-    }
 
     /**
      * DSSAT Time series Observation Data Output method
@@ -45,7 +33,7 @@ public class DssatTFileOutput extends DssatCommonOutput {
      *
      * @return the list of generated files
      */
-//    @Override
+    @Override
     public List<File> write(File outDir, AceDataset ace, AceBaseComponentType... components) throws IOException {
 
         ace.linkDataset();
@@ -68,6 +56,7 @@ public class DssatTFileOutput extends DssatCommonOutput {
      * @param arg0 file output path
      * @param exps data holder object
      */
+    @Override
     public void writeFile(String arg0, List<AceExperiment> exps) {
 
         // Initial variables

@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.util.HashMap;
+import org.agmip.ace.io.AceParser;
+import org.agmip.util.JSONAdapter;
 import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
@@ -15,7 +17,6 @@ import org.junit.Test;
  *
  * @author Meng Zhang
  */
-
 public class DssatWeatherTest {
 
     DssatWeatherOutput obDssatWeatherOutput;
@@ -42,7 +43,7 @@ public class DssatWeatherTest {
 //        bo.close();
 //        f.delete();
 
-        obDssatWeatherOutput.writeFile("", result);
+        obDssatWeatherOutput.write(new File("output"), AceParser.parse(JSONAdapter.toJSON(result)));
         File file = obDssatWeatherOutput.getOutputFile();
         if (file != null) {
             assertTrue(file.exists());

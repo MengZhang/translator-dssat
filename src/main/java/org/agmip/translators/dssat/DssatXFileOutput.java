@@ -23,10 +23,8 @@ import org.agmip.ace.AceRecord;
 import org.agmip.ace.AceRecordCollection;
 import org.agmip.ace.AceSoil;
 import org.agmip.ace.AceWeather;
-import org.agmip.ace.io.AceParser;
 import org.agmip.ace.util.AceFunctions;
 import static org.agmip.translators.dssat.DssatCommonInput.copyItem;
-import org.agmip.util.JSONAdapter;
 import static org.agmip.util.MapUtil.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,22 +35,10 @@ import org.slf4j.LoggerFactory;
  * @author Meng Zhang
  * @version 1.0
  */
-public class DssatXFileOutput extends DssatCommonOutput {
+public class DssatXFileOutput extends DssatCommonOutput implements DssatXATFileOutputI {
 
     private static final Logger LOG = LoggerFactory.getLogger(DssatXFileOutput.class);
 //    public static final DssatCRIDHelper crHelper = new DssatCRIDHelper();
-
-    /**
-     * DSSAT Experiment Data Output method
-     *
-     * @param arg0 file output path
-     * @param result data holder object
-     */
-    @Override
-    public void writeFile(String arg0, Map result) throws IOException {
-        AceDataset ace = AceParser.parse(JSONAdapter.toJSON(result));
-        write(new File(arg0), ace);
-    }
 
     /**
      * DSSAT Experiment Data Output method
@@ -63,7 +49,7 @@ public class DssatXFileOutput extends DssatCommonOutput {
      *
      * @return the list of generated files
      */
-//    @Override
+    @Override
     public List<File> write(File outDir, AceDataset ace, AceBaseComponentType... components) throws IOException {
 
         ace.linkDataset();
@@ -86,6 +72,7 @@ public class DssatXFileOutput extends DssatCommonOutput {
      * @param arg0 file output path
      * @param exps the list of ACE experiment data
      */
+    @Override
     public void writeFile(String arg0, List<AceExperiment> exps) {
 
         // Initial variables

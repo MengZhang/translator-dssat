@@ -3,9 +3,9 @@ package org.agmip.translators.dssat;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.HashMap;
-import static org.agmip.util.MapUtil.*;
+import org.agmip.ace.io.AceParser;
+import org.agmip.util.JSONAdapter;
 import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
@@ -35,9 +35,8 @@ public class DssatBatchFileTest {
         HashMap result;
 
         result = obDssatControllerInput.readFile(resource.getPath());
-        ArrayList<HashMap> expArr = getObjectOr(result, "experiments", new ArrayList());
 
-        obDssatBatchFileOutput.writeFile("", expArr);
+        obDssatBatchFileOutput.write(new File("output"), AceParser.parse(JSONAdapter.toJSON(result)));
         File file = obDssatBatchFileOutput.getOutputFile();
         if (file != null) {
             assertTrue(file.exists());

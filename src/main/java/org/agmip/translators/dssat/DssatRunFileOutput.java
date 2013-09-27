@@ -5,9 +5,10 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import static org.agmip.util.MapUtil.*;
+import java.util.List;
+import org.agmip.ace.AceBaseComponentType;
+import org.agmip.ace.AceDataset;
+import org.agmip.ace.AceExperiment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,7 +18,7 @@ import org.slf4j.LoggerFactory;
  * @author Meng Zhang
  * @version 1.0
  */
-public class DssatRunFileOutput extends DssatCommonOutput implements DssatBtachFile {
+public class DssatRunFileOutput extends DssatCommonOutput {
 
     private static final Logger LOG = LoggerFactory.getLogger(DssatRunFileOutput.class);
     private String dssatVerStr;
@@ -31,33 +32,50 @@ public class DssatRunFileOutput extends DssatCommonOutput implements DssatBtachF
     }
 
     /**
-     * DSSAT Run File Output method
+     * DSSAT Run Data Output method
      *
-     * @param arg0 file output path
-     * @param results array of data holder object
+     * @param outDir the directory to output the translated files.
+     * @param ace the source ACE Dataset
+     * @param components subcomponents to translate
+     *
+     * @return the list of generated files
      */
     @Override
-    public void writeFile(String arg0, ArrayList<HashMap> results) {
-        writeFile(arg0, new HashMap());
+    public List<File> write(File outDir, AceDataset ace, AceBaseComponentType... components) throws IOException {
+
+        ace.linkDataset();
+        List<File> ret = new ArrayList<File>();
+        String path = revisePath(outDir);
+        writeFile(path, ace.getExperiments());
+        if (outputFile != null) {
+            ret.add(outputFile);
+        }
+        return ret;
     }
 
     /**
      * DSSAT Run File Output method
      *
      * @param arg0 file output path
-     * @param result data holder object
+     * @param exps array of data holder object
      */
-    @Override
-    public void writeFile(String arg0, Map result) {
+    private void writeFile(String arg0, List<AceExperiment> exps) {
 
         // Initial variables
         BufferedWriter bwR;                         // output object
 
         try {
+            // Set default value for missing data
+            setDefVal();
+
+            // Get Data from input holder
+            if (exps.isEmpty()) {
+                return;
+            }
 
             // Get version number
             if (dssatVerStr == null) {
-                dssatVerStr = getObjectOr(result, "crop_model_version", "").replaceAll("\\D", "");
+                dssatVerStr = getValueOr(exps.get(0), "crop_model_version", "").replaceAll("\\D", "");
                 if (!dssatVerStr.matches("\\d+")) {
                     dssatVerStr = DssatBatchFileOutput.DssatVersion.DSSAT45.toString();
                 }

@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.util.HashMap;
+import org.agmip.ace.io.AceParser;
+import org.agmip.util.JSONAdapter;
 import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
@@ -20,14 +22,13 @@ public class DssatSoilTest {
     DssatSoilOutput obDssatSoilOutput;
     DssatSoilInput obDssatSoilInput;
     URL resource;
-    
+
     @Before
     public void setUp() throws Exception {
         obDssatSoilOutput = new DssatSoilOutput();
         obDssatSoilInput = new DssatSoilInput();
         resource = this.getClass().getResource("/UFGA8201_MZX.zip");
     }
-    
 
     @Test
     public void test() throws IOException, Exception {
@@ -44,7 +45,7 @@ public class DssatSoilTest {
 //        bo.close();
 //        f.delete();
 
-        obDssatSoilOutput.writeFile("output", result);
+        obDssatSoilOutput.write(new File("output"), AceParser.parse(JSONAdapter.toJSON(result)));
         File file = obDssatSoilOutput.getOutputFile();
         if (file != null) {
             assertTrue(file.exists());

@@ -35,34 +35,13 @@ public class DssatWeatherOutput extends DssatCommonOutput {
     /**
      * DSSAT Weather Data Output method
      *
-     * @param arg0 file output path
-     * @param result data holder object
-     */
-    @Override
-    public void writeFile(String arg0, Map result) throws IOException {
-        Map weathers;
-        if (!result.containsKey("weathers")) {
-            weathers = new HashMap();
-            ArrayList<Map> arr = new ArrayList();
-            arr.add(MapUtil.getObjectOr(result, "weather", result));
-            weathers.put("weathers", arr);
-        } else {
-            weathers = result;
-        }
-        AceDataset ace = AceParser.parse(JSONAdapter.toJSON(weathers));
-        write(new File(arg0), ace);
-    }
-
-    /**
-     * DSSAT Weather Data Output method
-     *
      * @param outDir the directory to output the translated files.
      * @param ace the source ACE Dataset
      * @param components subcomponents to translate
      *
      * @return the list of generated files
      */
-//    @Override
+    @Override
     public List<File> write(File outDir, AceDataset ace, AceBaseComponentType... components) throws IOException {
 
         ace.linkDataset();

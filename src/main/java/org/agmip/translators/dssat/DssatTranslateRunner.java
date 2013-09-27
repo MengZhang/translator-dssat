@@ -3,9 +3,10 @@ package org.agmip.translators.dssat;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 import java.util.concurrent.Callable;
+import org.agmip.ace.AceDataset;
+import org.agmip.ace.AceExperiment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,46 +15,48 @@ import org.slf4j.LoggerFactory;
  *
  * @author Meng Zhang
  */
-public class DssatTranslateRunner implements Callable<File> {
+public class DssatTranslateRunner implements Callable<List<File>> {
 
     private DssatCommonOutput translator;
-    private Map data;
-    private ArrayList<HashMap> dataArr;
-    private String outputDirectory;
+    private AceDataset ace;
+    private List<AceExperiment> GourpedExps;
+    private File outDir;
     private static Logger LOG = LoggerFactory.getLogger(DssatTranslateRunner.class);
 
-    public DssatTranslateRunner(DssatCommonOutput translator, Map data, String outputDirectory) {
+    public DssatTranslateRunner(DssatCommonOutput translator, AceDataset data, File outputDirectory) {
         this.translator = translator;
-        this.data = data;
-        this.outputDirectory = outputDirectory;
+        this.ace = data;
+        this.outDir = outputDirectory;
     }
 
-    public DssatTranslateRunner(DssatCommonOutput translator, ArrayList<HashMap> dataArr, String outputDirectory) {
+    public DssatTranslateRunner(DssatCommonOutput translator, List<AceExperiment> dataArr, File outputDirectory) {
         this.translator = translator;
-        this.dataArr = dataArr;
-        this.outputDirectory = outputDirectory;
+        this.GourpedExps = dataArr;
+        this.outDir = outputDirectory;
     }
 
     @Override
-    public File call() throws Exception {
+    public List<File> call() throws Exception {
         LOG.debug("Starting new thread!");
+        List<File> ret = new ArrayList();
         try {
-            if (translator instanceof DssatBtachFile) {
-                ((DssatBtachFile) translator).writeFile(outputDirectory, dataArr);
+            if (translator instanceof DssatXATFileOutputI) {
+                ((DssatXATFileOutputI) translator).writeFile(DssatCommonOutput.revisePath(outDir), GourpedExps);
+                if (translator.getOutputFile() != null) {
+                    ret.add(translator.getOutputFile());
+                }
             } else {
-                translator.writeFile(outputDirectory, data);
+                ret.addAll(translator.write(outDir, ace));
             }
         } catch (IOException e) {
             LOG.error(e.getMessage());
         }
 
-        File ret = translator.getOutputFile();
-
-        if (ret == null) {
+        if (ret.isEmpty()) {
             LOG.debug("Job canceled!");
             throw new NoOutputFileException();
         } else {
-            LOG.debug("Job done for " + ret.getName());
+            LOG.debug("Job done for {}", ret);
             return ret;
         }
     }
