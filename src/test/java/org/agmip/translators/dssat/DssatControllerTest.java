@@ -61,14 +61,14 @@ public class DssatControllerTest {
         result = obDssatControllerInput.readFile(resource.getPath());
         ace = AceParser.parse(JSONAdapter.toJSON(result));
 
-        BufferedOutputStream bo;
-        File f = new File("output\\" + fileName.replaceAll("[Xx]*\\.\\w+$", ".json"));
-        bo = new BufferedOutputStream(new FileOutputStream(f));
-
-        // Output json for reading
-        bo.write(JSONAdapter.toJSON(result).getBytes());
-        bo.close();
-        f.delete();
+//        BufferedOutputStream bo;
+//        File f = new File("output\\" + fileName.replaceAll("[Xx]*\\.\\w+$", ".json"));
+//        bo = new BufferedOutputStream(new FileOutputStream(f));
+//
+//        // Output json for reading
+//        bo.write(JSONAdapter.toJSON(result).getBytes());
+//        bo.close();
+//        f.delete();
 
         cal = Calendar.getInstance();
         outPath = "output\\AGMIP_DSSAT_" + cal.getTimeInMillis();
