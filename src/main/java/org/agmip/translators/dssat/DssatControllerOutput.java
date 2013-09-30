@@ -68,13 +68,14 @@ public class DssatControllerOutput extends DssatCommonOutput {
             }
             Map<String, List<AceExperiment>> expGroup = groupingExpData(ace);
             for (String key : expGroup.keySet()) {
-                writeSingleExp(outDir, expGroup.get(key), new DssatXFileOutput(), key + "_X");
-                writeSingleExp(outDir, expGroup.get(key), new DssatAFileOutput(), key + "_A");
-                writeSingleExp(outDir, expGroup.get(key), new DssatTFileOutput(), key + "_T");
+                List<AceExperiment> exps = expGroup.get(key);
+                writeSingleExp(outDir, exps, new DssatXFileOutput(), key + "_X");
+                writeSingleExp(outDir, exps, new DssatAFileOutput(), key + "_A");
+                writeSingleExp(outDir, exps, new DssatTFileOutput(), key + "_T");
+                writeSingleExp(outDir, exps, new DssatCulFileOutput(), key + "_Cul");
             }
             writeSingleExp(outDir, ace, new DssatSoilOutput(), "Soil file");
             writeSingleExp(outDir, ace, new DssatWeatherOutput(), "Weather file");
-            writeSingleExp(outDir, ace, new DssatCulFileOutput(), "Cultivar file");
             writeSingleExp(outDir, ace, new DssatBatchFileOutput(DssatVersion.DSSAT45), "DSSBatch.v45");
             writeSingleExp(outDir, ace, new DssatBatchFileOutput(DssatVersion.DSSAT46), "DSSBatch.v46");
             writeSingleExp(outDir, ace, new DssatRunFileOutput(DssatVersion.DSSAT45), "Run45.bat");

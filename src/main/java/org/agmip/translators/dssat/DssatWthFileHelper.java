@@ -1,18 +1,13 @@
 package org.agmip.translators.dssat;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Map;
-import org.agmip.ace.AceComponent;
-import org.agmip.ace.AceExperiment;
 import org.agmip.ace.AceRecord;
 import org.agmip.ace.AceRecordCollection;
 import org.agmip.ace.AceWeather;
 import static org.agmip.translators.dssat.DssatCommonOutput.getValueOr;
-import org.agmip.util.MapUtil;
 
 /**
  *
@@ -31,26 +26,8 @@ public class DssatWthFileHelper {
      * @param wthData weather data holder
      * @return the weather file name
      */
-    public String createWthFileName(Map wthData) throws IOException {
-        return createWthFileName((Object) wthData);
-    }
-
-    /**
-     * Generate the weather file name for auto-generating (extend name not
-     * included)
-     *
-     * @param wthData weather data holder
-     * @return the weather file name
-     */
     public String createWthFileName(AceWeather wthData) throws IOException {
-        return createWthFileName((Object) wthData);
-    }
 
-    private String createWthFileName(Object wthData) throws IOException {
-
-        if (wthData instanceof Map) {
-            wthData = MapUtil.getObjectOr((Map) wthData, "weather", wthData);
-        }
         String hash = getValueOr(wthData, "wst_id", "").toString();
         if (hash.length() == 8) {
             return hash;
@@ -88,7 +65,7 @@ public class DssatWthFileHelper {
      * @param wthData Weather data holder
      * @return
      */
-    private String getWthInsiCodeOr(Object wthData) throws IOException {
+    private String getWthInsiCodeOr(AceWeather wthData) throws IOException {
         String insiName = getWthInsiCode(wthData);
         if (insiName.equals("")) {
             return getNextDefName();
@@ -112,7 +89,7 @@ public class DssatWthFileHelper {
      * @param wthData weather data holder
      * @return the 4-bit institute code
      */
-    public static String getWthInsiCode(Object wthData) throws IOException {
+    public static String getWthInsiCode(AceWeather wthData) throws IOException {
         String wst_name = getValueOr(wthData, "wst_name", "");
         if (wst_name.matches("(\\w{4})|(\\w{8})")) {
             return wst_name;
@@ -138,28 +115,18 @@ public class DssatWthFileHelper {
      * @param wthData weather data holder
      * @return the 4-bit number for year and duration
      */
-    public static String getWthYearDuration(Object wthData) throws IOException {
+    public static String getWthYearDuration(AceWeather wthData) throws IOException {
         String yearDur = "";
-        if (wthData instanceof Map) {
-            ArrayList<Map> wthRecords = (ArrayList) MapUtil.getObjectOr((Map) wthData, "dailyWeather", new ArrayList());
-            if (!wthRecords.isEmpty()) {
-                // Get the year of starting date and end date
-                String startYear = MapUtil.getValueOr((wthRecords.get(0)), "w_date", "    ").substring(2, 4).trim();
-                String endYear = MapUtil.getValueOr((wthRecords.get(wthRecords.size() - 1)), "w_date", "    ").substring(2, 4).trim();
-                yearDur = getWthYearDuration(yearDur, startYear, endYear);
+        AceRecordCollection dailys = ((AceWeather) wthData).getDailyWeather();
+        Iterator<AceRecord> it = dailys.iterator();
+        if (it.hasNext()) {
+            AceRecord daily = it.next();
+            String startYear = daily.getValueOr("w_date", "    ").substring(2, 4).trim();
+            while (it.hasNext()) {
+                daily = it.next();
             }
-        } else if (wthData instanceof AceWeather) {
-            AceRecordCollection dailys = ((AceWeather) wthData).getDailyWeather();
-            Iterator<AceRecord> it = dailys.iterator();
-            if (it.hasNext()) {
-                AceRecord daily = it.next();
-                String startYear = daily.getValueOr("w_date", "    ").substring(2, 4).trim();
-                while (it.hasNext()) {
-                    daily = it.next();
-                }
-                String endYear = daily.getValueOr("w_date", "    ").substring(2, 4).trim();
-                yearDur = getWthYearDuration(yearDur, startYear, endYear);
-            }
+            String endYear = daily.getValueOr("w_date", "    ").substring(2, 4).trim();
+            yearDur = getWthYearDuration(yearDur, startYear, endYear);
         }
 
         return yearDur;

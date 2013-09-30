@@ -235,7 +235,7 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
      * @param result date holder for experiment data
      * @return experiment name
      */
-    protected String getExName(Object result) {
+    protected String getExName(AceExperiment result) {
 
         String ret = getValueOr(result, "exname", "");
         if (ret.matches("\\w+\\.\\w{2}[Xx]")) {
@@ -308,7 +308,7 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
      * @param fileType the last letter from file extend name
      * @return file name
      */
-    protected String getFileName(Object result, String fileType) {
+    protected String getFileName(AceExperiment result, String fileType) {
         String exname = getExName(result);
         String crid;
         if (getValueOr(result, "seasonal_dome_applied", "N").equals("Y")) {
@@ -537,23 +537,6 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
         return wthHelper.createWthFileName(data);
     }
 
-    protected String getWthFileName(HashMap data) throws IOException {
-
-//        String agmipFileHack = getValueOr(wthFile, "wst_name", "");
-//        if (agmipFileHack.length() == 8) {
-//            return agmipFileHack;
-//        }
-        String ret = getValueOr(data, "wst_id", "");
-        if (ret.equals("") || ret.length() > 8 || ret.length() <= 4) {
-            ret = wthHelper.createWthFileName(data);
-            if (ret.equals("")) {
-                ret = "AGMP";
-            }
-        }
-
-        return ret;
-    }
-
     /**
      * Get the soil_id with legal length (8~10 bits), filled with "_"
      *
@@ -562,19 +545,6 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
      */
     protected String getSoilID(AceSoil data) {
         return soilHelper.getSoilID(data);
-    }
-
-    protected String getSoilID(HashMap data) {
-        return soilHelper.getSoilID(data);
-//        String ret = getObjectOr(data, "soil_id", "");
-//        ret = ret.trim();
-//        if (ret.equals("")) {
-//            return ret;
-//        }
-//        while (ret.length() < 8) {
-//            ret += "_";
-//        }
-//        return ret;
     }
 
     /**
@@ -660,17 +630,15 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
         return ret;
     }
 
-    protected static String getValueOr(Object data, String key, String orVal) {
-        if (data instanceof Map) {
-            return MapUtil.getValueOr((Map) data, key, orVal);
-        } else if (data instanceof AceComponent) {
-            try {
-                return ((AceComponent) data).getValueOr(key, orVal);
-            } catch (IOException e) {
-                LOG.warn(Functions.getStackTrace(e));
-                return orVal;
-            }
-        } else {
+    protected static String getValueOr(Map data, String key, String orVal) {
+        return MapUtil.getValueOr(data, key, orVal);
+    }
+
+    protected static String getValueOr(AceComponent data, String key, String orVal) {
+        try {
+            return data.getValueOr(key, orVal);
+        } catch (IOException e) {
+            LOG.warn(Functions.getStackTrace(e));
             return orVal;
         }
     }

@@ -121,7 +121,7 @@ public class DssatSoilOutput extends DssatCommonOutput {
      * site should have the same first two letters in the SOIL_ID
      *
      * @param arg0 file output path
-     * @param soils data holder object
+     * @param soilSet data holder object
      * @param comments the experiment information related with soil site, used
      * for output comments
      */

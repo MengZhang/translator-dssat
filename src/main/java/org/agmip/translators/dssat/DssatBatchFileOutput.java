@@ -126,11 +126,6 @@ public class DssatBatchFileOutput extends DssatCommonOutput {
             for (int i = 0; i < exps.size(); i++) {
                 exp = exps.get(i);
                 exFileName = getFileName(exp, "X");
-//                String folderPath = getObjectOr(result, "exname", "Experiment_" + i);
-//                String folderPath = getObjectOr(expNameMap, getObjectOr(result, "exname", "Experiment_" + i), "");
-//                if (!folderPath.equals("")) {
-//                    folderPath += File.separator;
-//                }
 
                 // Get DSSAT Sequence info
                 // TODO will be update later
