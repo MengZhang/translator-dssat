@@ -16,6 +16,7 @@ import org.agmip.ace.io.AceParser;
 import org.agmip.util.JSONAdapter;
 import org.junit.Before;
 import org.junit.Test;
+import static org.junit.Assert.*;
 
 /**
  * Unit test for simple App.
@@ -36,6 +37,7 @@ public class DssatControllerTest {
 //                        "UFGA8202_MZX.ZIP";
 //                        "UFGA8201_MZX_dummy.ZIP";
                         "CISR9704_VBX.ZIP";
+//                        "APAN9304_PNX.ZIP";
 //                        "SWData.zip";
 //                        "AGMIP_DSSAT_1359154224136.zip";
 //                        "HSC_wth_bak.zip";
@@ -73,6 +75,7 @@ public class DssatControllerTest {
         outDir = new File(outPath);
         obDssatControllerOutput = new DssatControllerOutput();
         files = obDssatControllerOutput.write(outDir, ace);
+        assertTrue("No files are generated", !files.isEmpty());
         for (File file : files) {
             System.out.println("Generated: " + file.getName());
             file.delete();
@@ -88,6 +91,7 @@ public class DssatControllerTest {
         outDir = new File(outPath);
         obDssatControllerOutput = new DssatControllerOutput();
         files = obDssatControllerOutput.write(outDir, AceParser.parse(jsonStr));
+        assertTrue("No files are generated", !files.isEmpty());
         for (File file : files) {
             System.out.println("Generated: " + file.getName());
             file.delete();
