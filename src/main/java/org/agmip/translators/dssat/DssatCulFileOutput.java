@@ -28,9 +28,8 @@ import org.slf4j.LoggerFactory;
 public class DssatCulFileOutput extends DssatCommonOutput implements DssatXATFileOutputI {
 
     private static final Logger LOG = LoggerFactory.getLogger(DssatCulFileOutput.class);
-    private List<File> fileArr;
+    private HashSet<File> fileArr = new HashSet();
 
-    
     /**
      * DSSAT Cultivar Data Output method
      *
@@ -47,7 +46,7 @@ public class DssatCulFileOutput extends DssatCommonOutput implements DssatXATFil
         List<File> ret = new ArrayList<File>();
         Map<String, List<AceExperiment>> expGroup = groupingExpData(ace);
         String path = revisePath(outDir);
-        fileArr = new ArrayList();
+        fileArr = new HashSet();
 
         for (String expName : expGroup.keySet()) {
             writeFile(path, expGroup.get(expName));
@@ -77,7 +76,7 @@ public class DssatCulFileOutput extends DssatCommonOutput implements DssatXATFil
 
             // Set default value for missing data
             setDefVal();
-            
+
             if (exps.isEmpty()) {
                 return;
             }
@@ -102,11 +101,14 @@ public class DssatCulFileOutput extends DssatCommonOutput implements DssatXATFil
             String lastHeaderInfo = "";
             String lastTitles = "";
             HashSet<HashCode> culHashs = new HashSet();
+            boolean isBlank = true;
             for (AceExperiment exp : exps) {
                 culData = exp.getSubcomponent("dssat_cultivar_info");
                 culArr = culData.getRecords("data");
                 if (culArr.isEmpty()) {
                     continue;
+                } else {
+                    isBlank = false;
                 }
                 for (Iterator<AceRecord> it = culArr.iterator(); it.hasNext();) {
                     AceRecord culRecord = it.next();
@@ -138,6 +140,13 @@ public class DssatCulFileOutput extends DssatCommonOutput implements DssatXATFil
             bwC.write(sbError.toString());
             bwC.write(sbData.toString());
             bwC.close();
+            if (isBlank) {
+                outputFile.delete();
+            } else {
+                if (fileArr.contains(outputFile)) {
+                    fileArr.add(outputFile);
+                }
+            }
 
         } catch (IOException e) {
             LOG.error(DssatCommonOutput.getStackTrace(e));
