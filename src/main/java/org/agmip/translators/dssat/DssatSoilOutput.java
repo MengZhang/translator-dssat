@@ -18,8 +18,6 @@ import org.agmip.ace.AceExperiment;
 import org.agmip.ace.AceRecord;
 import org.agmip.ace.AceRecordCollection;
 import org.agmip.ace.AceSoil;
-import org.agmip.ace.io.AceParser;
-import org.agmip.util.JSONAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -84,10 +82,6 @@ public class DssatSoilOutput extends DssatCommonOutput {
             for (AceExperiment exp : exps) {
                 AceSoil soil = exp.getSoil();
                 if (soil != null) {
-                    try {
-                        System.out.println(soil.keySet().toString());
-                    } catch (IOException ex) {
-                    }
                     setGroup(soilGroup, soil);
 
                     String soil_id = getValueOr(soil, "soil_id", "");
