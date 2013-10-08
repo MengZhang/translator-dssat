@@ -42,6 +42,7 @@ public class DssatWthFileHelper {
                 String clim_id = getValueOr(wthData, "clim_id", "0XXX");
                 if (!clim_id.startsWith("0")) {
                     wst_id += clim_id;
+                    yearDur = clim_id;
                 } else {
                     wst_id += yearDur;
                 }
