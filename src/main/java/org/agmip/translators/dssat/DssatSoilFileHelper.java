@@ -21,7 +21,7 @@ public class DssatSoilFileHelper {
      * @param soilData soil data holder
      * @return the soil id (10-bit)
      */
-    public String getSoilID(AceSoil soilData) {
+    public synchronized String getSoilID(AceSoil soilData) {
 
         String hash = getValueOr(soilData, "soil_id", "");
         

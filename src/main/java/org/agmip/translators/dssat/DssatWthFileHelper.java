@@ -26,12 +26,15 @@ public class DssatWthFileHelper {
      * @param wthData weather data holder
      * @return the weather file name
      */
-    public String createWthFileName(AceWeather wthData) throws IOException {
+    public synchronized String createWthFileName(AceWeather wthData) throws IOException {
 
         String hash = getValueOr(wthData, "wst_id", "").toString();
+        System.out.println("hash: " + hash);
         if (hash.length() == 8) {
             return hash;
         }
+        System.out.println("hashToName: " + hashToName.toString());
+        System.out.println("names: " + names.toString());
         if (hashToName.containsKey(hash)) {
             return hashToName.get(hash);
         } else {
@@ -91,20 +94,27 @@ public class DssatWthFileHelper {
      * @return the 4-bit institute code
      */
     public static String getWthInsiCode(AceWeather wthData) throws IOException {
+        System.out.println("OK");
         String wst_name = getValueOr(wthData, "wst_name", "");
         if (wst_name.matches("(\\w{4})|(\\w{8})")) {
+            System.out.println("OK1 " + wst_name);
             return wst_name;
         }
+        System.out.println("wst_name: " + wst_name);
 
         String wst_id = getValueOr(wthData, "wst_id", "");
         if (wst_id.matches("(\\w{4})|(\\w{8})")) {
+            System.out.println("OK2 " + wst_id);
             return wst_id;
         }
+        System.out.println("wst_id: " + wst_id);
 
         wst_id = getValueOr(wthData, "dssat_insi", "");
         if (wst_id.matches("(\\w{4})|(\\w{8})")) {
+            System.out.println("OK3 " + wst_id);
             return wst_id;
         }
+        System.out.println("dssat_insi: " + wst_id);
 
         return "";
     }

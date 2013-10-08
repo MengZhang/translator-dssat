@@ -308,7 +308,7 @@ public abstract class DssatCommonOutput implements TranslatorOutput {
      * @param fileType the last letter from file extend name
      * @return file name
      */
-    protected String getFileName(AceExperiment result, String fileType) {
+    protected synchronized String getFileName(AceExperiment result, String fileType) {
         String exname = getExName(result);
         String crid;
         if (getValueOr(result, "seasonal_dome_applied", "N").equals("Y")) {
