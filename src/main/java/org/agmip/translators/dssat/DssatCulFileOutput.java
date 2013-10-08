@@ -142,6 +142,7 @@ public class DssatCulFileOutput extends DssatCommonOutput implements DssatXATFil
             bwC.close();
             if (isBlank) {
                 outputFile.delete();
+                outputFile= null;
             } else {
                 if (fileArr.contains(outputFile)) {
                     fileArr.add(outputFile);
