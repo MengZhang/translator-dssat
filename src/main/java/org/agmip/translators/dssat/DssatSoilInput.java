@@ -58,12 +58,8 @@ public class DssatSoilInput extends DssatCommonInput {
         ArrayList<HashMap> arr = new ArrayList();
         for (AceSoil soil : soils) {
             String json = new String(soil.getRawComponent(), "UTF-8");
-            Object data = JSONAdapter.toJSON(json);
-            if (data instanceof HashMap) {
-                arr.add((HashMap) data);
-            } else {
-                System.out.println("Invalid JSON: " + json);
-            }
+            HashMap data = JSONAdapter.fromJSON(json);
+            arr.add((HashMap) data);
         }
         return arr;
     }
@@ -73,7 +69,6 @@ public class DssatSoilInput extends DssatCommonInput {
         String slNotes = null;
         ArrayList<AceSoil> sites = new ArrayList<AceSoil>();
         AceSoil site = new AceSoil(AceFunctions.getBlankComponent());
-        ArrayList layers = new ArrayList();
         String line;
         BufferedReader brS = null;
         Object buf;
@@ -86,8 +81,6 @@ public class DssatSoilInput extends DssatCommonInput {
         if (mapS.isEmpty()) {
             return sites;
         }
-
-        sites = new ArrayList();
 
         for (Object key : mapS.keySet()) {
 
@@ -113,6 +106,8 @@ public class DssatSoilInput extends DssatCommonInput {
 
                     // header info
                     if (flg[1].equals("") && flg[2].equals("data")) {
+                        
+                        site = new AceSoil(AceFunctions.getBlankComponent());
 
                         // Set variables' formats
                         formats.clear();
@@ -132,7 +127,6 @@ public class DssatSoilInput extends DssatCommonInput {
                             site.update("sltx", transSltx(sltx));
                         }
                         sites.add(site);
-                        layers = new ArrayList();
 //                        ((HashMap) sites.get(sites.size() - 1)).put(layerKey, new ArrayList());
 
                     } // Site detail info
