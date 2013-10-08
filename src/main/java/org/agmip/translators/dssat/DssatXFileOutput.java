@@ -239,7 +239,13 @@ public class DssatXFileOutput extends DssatCommonOutput implements DssatXATFileO
 
                 // Set field info
                 copyItem(flData, exp, "id_field");
-                flData.put("wst_id", getWthFileName(exp.getWeather()));
+                String dssat_wst_id = exp.getValueOr("dssat_wst_id", "");
+                // Weather data is missing plus dssat_wst_id is available
+                if (!dssat_wst_id.equals("") && exp.getWeather().getDailyWeather().isEmpty()) {
+                    flData.put("wst_id", dssat_wst_id);
+                } else {
+                    flData.put("wst_id", getWthFileName(exp.getWeather()));
+                }
                 copyItem(flData, exp, "flsl");
                 copyItem(flData, exp, "flob");
                 copyItem(flData, exp, "fl_drntype");
@@ -456,8 +462,6 @@ public class DssatXFileOutput extends DssatCommonOutput implements DssatXATFileO
                 String wst_id = getValueOr(secData, "wst_id", "");
                 if (wst_id.equals("")) {
                     sbError.append("! Warning: Incompleted record because missing data : [wst_id]\r\n");
-                } else if (wst_id.length() == 4 && !getValueOr(secData, "dssat_wst_id", "").equals("")) {
-                    wst_id = getValueOr(secData, "dssat_wst_id", "");
                 }
                 String soil_id = getValueOr(secData, "soil_id", defValC);
                 if (soil_id.equals("")) {
