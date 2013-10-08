@@ -12,11 +12,15 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import org.agmip.ace.AceComponent;
+import org.agmip.ace.AceRecord;
+import org.agmip.ace.AceRecordCollection;
 import org.agmip.ace.LookupCodes;
+import org.agmip.common.Functions;
 import org.agmip.core.types.TranslatorInput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -233,8 +237,17 @@ public abstract class DssatCommonInput implements TranslatorInput {
      */
     protected HashMap readLine(String line, LinkedHashMap<String, Integer> formats) {
 
-        return readLine(line, formats, null);
+        return readLine(line, formats, (String) null);
     }
+    
+    protected void readLine(String line, LinkedHashMap<String, Integer> formats, AceComponent ace) {
+        readLine(line, formats, null, ace, false);
+    }
+    
+    protected void readLine(String line, LinkedHashMap<String, Integer> formats, AceComponent ace, boolean skipTypeCheck) {
+        readLine(line, formats, null, ace, skipTypeCheck);
+    }
+    
 
     /**
      * Divide the data in the line into a map
@@ -270,6 +283,33 @@ public abstract class DssatCommonInput implements TranslatorInput {
         }
 
         return ret;
+    }
+    
+    protected void readLine(String line, LinkedHashMap<String, Integer> formats, String invalidValue, AceComponent ace, boolean skipTypeCheck) {
+
+        int length;
+        String tmp;
+
+        for (String key : formats.keySet()) {
+            // To avoid to be over limit of string lenght
+            length = Math.min((Integer) formats.get(key), line.length());
+            if (!((String) key).equals("") && !((String) key).startsWith("null")) {
+                tmp = line.substring(0, length).trim();
+                // if the value is in valid keep blank string in it
+                try {
+                    if (checkValidValue(tmp)) {
+                        ace.update(key, tmp, true, skipTypeCheck, false);
+                    } else {
+                        if (invalidValue != null) {
+                            ace.update(key, invalidValue, true, skipTypeCheck, false);   // P.S. "" means missing or invalid value
+                        }
+                    }
+                } catch (IOException e) {
+                    LOG.warn(Functions.getStackTrace(e));
+                }
+            }
+            line = line.substring(length);
+        }
     }
 
     /**
@@ -553,40 +593,69 @@ public abstract class DssatCommonInput implements TranslatorInput {
      *
      * @param arr the target array
      * @param item the input item which will be added into array
-     * @param key the primary key item's name
+     * @param keys the primary key item's name
      */
-    protected void addToArray(ArrayList arr, HashMap item, Object key) {
+    protected void addToArray(ArrayList arr, HashMap item, String... keys) {
         HashMap elem;
         boolean unmatchFlg = true;
 
         // Added logging (cv)
         LOG.debug("Array: {}", arr.toString());
         LOG.debug("Item: {}", item.toString());
-        LOG.debug("Key: {}", key);
-
+        LOG.debug("Key: {}", keys.length);
 
         for (int i = 0; i < arr.size(); i++) {
             elem = (HashMap) arr.get(i);
-            if (!key.getClass().isArray()) {
-                if (elem.get(key).equals(item.get(key))) {
-                    elem.putAll(item);
-                    unmatchFlg = false;
+            boolean equalFlg = true;
+            for (int j = 0; j < keys.length; j++) {
+                if (!elem.get(keys[j]).equals(item.get(keys[j]))) {
+                    equalFlg = false;
                     break;
                 }
-            } else {
-                Object[] keys = (Object[]) key;
-                boolean equalFlg = true;
-                for (int j = 0; j < keys.length; j++) {
-                    if (!elem.get(keys[j]).equals(item.get(keys[j]))) {
+            }
+            if (equalFlg) {
+                elem.putAll(item);
+                unmatchFlg = false;
+                break;
+            }
+        }
+        if (unmatchFlg) {
+            arr.add(item);
+        }
+    }
+    protected void addToArray(AceRecordCollection arr, AceRecord item, String... keys) {
+        boolean unmatchFlg = true;
+
+        // Added logging (cv)
+        LOG.debug("Array: {}", arr.toString());
+        LOG.debug("Item: {}", item.toString());
+        LOG.debug("Key: {}", keys.length);
+
+        for (Iterator<AceRecord> it = arr.iterator(); it.hasNext();) {
+            AceRecord elem = it.next();
+            boolean equalFlg = true;
+            for (int j = 0; j < keys.length; j++) {
+                try {
+                    String val1 = elem.getValue(keys[j]);
+                    String val2 = item.getValue(keys[j]);
+                    if (val1 != null && val2 != null && val1.equals(val2)) {
                         equalFlg = false;
                         break;
                     }
+                } catch (IOException e) {
+                    LOG.warn(Functions.getStackTrace(e));
                 }
-                if (equalFlg) {
-                    elem.putAll(item);
-                    unmatchFlg = false;
-                    break;
+            }
+            if (equalFlg) {
+                try {
+                    for (String key : item.keySet()) {
+                        elem.update(key, item.getValue(key));
+                    }
+                } catch (IOException e) {
+                    LOG.warn(Functions.getStackTrace(e));
                 }
+                unmatchFlg = false;
+                break;
             }
         }
         if (unmatchFlg) {

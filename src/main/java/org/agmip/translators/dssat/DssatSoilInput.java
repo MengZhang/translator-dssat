@@ -6,7 +6,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import org.agmip.util.MapUtil;
+import org.agmip.ace.AceRecord;
+import org.agmip.ace.AceSoil;
+import org.agmip.ace.util.AceFunctions;
+import org.agmip.util.JSONAdapter;
 
 /**
  * DSSAT Soil Data I/O API Class
@@ -51,10 +54,25 @@ public class DssatSoilInput extends DssatCommonInput {
      * @return result data holder object
      */
     protected ArrayList<HashMap> readSoilSites(HashMap brMap, HashMap ret) throws IOException {
+        ArrayList<AceSoil> soils = readSoilSites(brMap);
+        ArrayList<HashMap> arr = new ArrayList();
+        for (AceSoil soil : soils) {
+            String json = new String(soil.getRawComponent(), "UTF-8");
+            Object data = JSONAdapter.toJSON(json);
+            if (data instanceof HashMap) {
+                arr.add((HashMap) data);
+            } else {
+                System.out.println("Invalid JSON: " + json);
+            }
+        }
+        return arr;
+    }
+    
+    protected ArrayList<AceSoil> readSoilSites(HashMap brMap) throws IOException {
 
         String slNotes = null;
-        ArrayList<HashMap> sites = new ArrayList<HashMap>();
-        HashMap site = new HashMap();
+        ArrayList<AceSoil> sites = new ArrayList<AceSoil>();
+        AceSoil site = new AceSoil(AceFunctions.getBlankComponent());
         ArrayList layers = new ArrayList();
         String line;
         BufferedReader brS = null;
@@ -105,13 +123,13 @@ public class DssatSoilInput extends DssatCommonInput {
                         formats.put("soil_name", 51);
                         // Read line and save into return holder
 //                        sites.add(readLine(line.substring(1), formats));
-                        site = readLine(line.substring(1), formats);
+                         readLine(line.substring(1), formats, site);
                         if (slNotes != null && !slNotes.equals("")) {
-                            site.put("sl_notes", slNotes);
+                            site.update("sl_notes", slNotes);
                         }
-                        String sltx = MapUtil.getValueOr(site, "sltx", "");
+                        String sltx = site.getValueOr("sltx", "");
                         if (!sltx.equals("")) {
-                            site.put("sltx", transSltx(sltx));
+                            site.update("sltx", transSltx(sltx));
                         }
                         sites.add(site);
                         layers = new ArrayList();
@@ -129,7 +147,7 @@ public class DssatSoilInput extends DssatCommonInput {
                         formats.put("classification", 51);    // P.S. "fd_name" for query using, not this time
                         // Read line and save into return holder
 //                        ((HashMap) sites.get(sites.size() - 1)).putAll(readLine(line, formats));
-                        site.putAll(readLine(line, formats));
+                        readLine(line, formats, site);
 
                     } // soil info
                     else if (flg[1].startsWith("scom ") && flg[2].equals("data")) {
@@ -148,7 +166,7 @@ public class DssatSoilInput extends DssatCommonInput {
                         formats.put("smke", 6);
                         // Read line and save into return holder
 //                        ((HashMap) sites.get(sites.size() - 1)).putAll(readLine(line, formats));
-                        site.putAll(readLine(line, formats));
+                        readLine(line, formats, site);
 
                     } // layer part one info
                     else if (flg[1].startsWith("slb  slmh") && flg[2].equals("data")) {
@@ -176,8 +194,11 @@ public class DssatSoilInput extends DssatCommonInput {
 //                        addToArray((ArrayList) ((HashMap) sites.get(sites.size() - 1)).get(layerKey),
 //                                readLine(line, formats),
 //                                "sllb");
-                        addToArray(layers, readLine(line, formats), "sllb");
-                        site.put(layerKey, layers);
+                        AceRecord layer = new AceRecord();
+                        readLine(line, formats, layer);
+                        site.getSoilLayers().add(layer);
+//                        addToArray(layers, readLine(line, formats), "sllb");
+//                        site.put(layerKey, layers);
 
                     } // layer part two info
                     else if (flg[1].startsWith("slb  slpx ") && flg[2].equals("data")) {
@@ -211,7 +232,10 @@ public class DssatSoilInput extends DssatCommonInput {
 //                        addToArray((ArrayList) ((HashMap) sites.get(sites.size() - 1)).get(layerKey),
 //                                readLine(line, formats),
 //                                "sllb");
-                        addToArray(layers, readLine(line, formats), "sllb");
+                        AceRecord layer = new AceRecord();
+                        readLine(line, formats, layer);
+                        addToArray(site.getSoilLayers(), layer, "sllb");
+                        // TODO could try another way to pick up the related layer first, then use readLine to fill in the variables
 
                     } else {
                     }
