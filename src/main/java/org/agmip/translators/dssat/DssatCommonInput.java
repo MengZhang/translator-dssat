@@ -142,6 +142,17 @@ public abstract class DssatCommonInput implements TranslatorInput {
             m.put(id, translateDateStr((String) m.get(id)));
         }
     }
+    protected void translateDateStr(AceComponent m, String id) {
+
+        try {
+            String val = m.getValue(id);
+            if (val != null) {
+                m.update(id, translateDateStr(val));
+            }
+        } catch (IOException e) {
+            LOG.warn(Functions.getStackTrace(e));
+        }
+    }
 
     /**
      * Translate data str from "yyddd" to "yyyymmdd"

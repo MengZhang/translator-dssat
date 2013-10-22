@@ -27,7 +27,7 @@ public class DssatWeatherTest {
     public void setUp() throws Exception {
         obDssatWeatherOutput = new DssatWeatherOutput();
         obDssatWeatherInput = new DssatWeatherInput();
-        resource = this.getClass().getResource("/UFGA8202_MZX.ZIP");
+        resource = this.getClass().getResource("/UFGA8201_MZX.ZIP");
     }
 
     @Test
@@ -47,7 +47,7 @@ public class DssatWeatherTest {
         File file = obDssatWeatherOutput.getOutputFile();
         if (file != null) {
             assertTrue(file.exists());
-            assertEquals("UFGA8201.WTH", file.getName());
+            assertEquals("UFGA8202.WTH", file.getName());
             assertTrue(file.delete());
         } else {
             assertTrue(file != null);
