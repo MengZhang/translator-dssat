@@ -10,7 +10,6 @@ import java.util.LinkedHashMap;
 import org.agmip.ace.AceDataset;
 import org.agmip.ace.AceRecord;
 import org.agmip.ace.AceRecordCollection;
-import org.agmip.ace.AceSoil;
 import org.agmip.ace.AceWeather;
 import org.agmip.common.Functions;
 import org.agmip.util.JSONAdapter;
@@ -52,14 +51,14 @@ public class DssatWeatherInput extends DssatCommonInput {
 
         return ret;
     }
-    
+
     protected AceDataset readFileToAce(HashMap brMap) throws IOException {
         AceDataset ace = new AceDataset();
         ArrayList<AceWeather> wths = readDailyData(brMap);
         for (AceWeather wth : wths) {
             ace.addWeather(wth.rebuildComponent());
         }
-        
+
         return ace;
     }
 
@@ -80,7 +79,7 @@ public class DssatWeatherInput extends DssatCommonInput {
         }
         return arr;
     }
-    
+
     protected ArrayList<AceWeather> readDailyData(HashMap brMap) throws IOException {
 
         AceWeather wth;
@@ -113,10 +112,10 @@ public class DssatWeatherInput extends DssatCommonInput {
                 wst_id = fileName;
                 clim_id = fileName.substring(4);
             } else {
-                wst_id = fileName.substring(0 ,4);
+                wst_id = fileName.substring(0, 4);
                 clim_id = "0XXX";
             }
-            
+
             buf = mapW.get(key);
             if (buf instanceof char[]) {
                 brW = new BufferedReader(new CharArrayReader((char[]) buf));
@@ -268,7 +267,7 @@ public class DssatWeatherInput extends DssatCommonInput {
                 try {
                     long stamp = System.currentTimeMillis();
                     addDaily(wths.get(wst_id), daily);
-                    System.out.println("Cost " + ((System.currentTimeMillis() - stamp)/1000.0) + "s");
+                    System.out.println("Cost " + ((System.currentTimeMillis() - stamp) / 1000.0) + "s");
                 } catch (IOException e) {
                     LOG.warn(Functions.getStackTrace(e));
                 }
@@ -331,7 +330,7 @@ public class DssatWeatherInput extends DssatCommonInput {
             curDaily.addAll(tmp);
         }
     }
-    
+
     private String getFirstDate(AceRecordCollection daily) {
         Iterator<AceRecord> it = daily.iterator();
         try {

@@ -9,7 +9,6 @@ import java.util.LinkedHashMap;
 import org.agmip.ace.AceDataset;
 import org.agmip.ace.AceRecord;
 import org.agmip.ace.AceSoil;
-import org.agmip.ace.util.AceFunctions;
 import org.agmip.util.JSONAdapter;
 
 /**
@@ -46,14 +45,14 @@ public class DssatSoilInput extends DssatCommonInput {
 
         return ret;
     }
-    
+
     protected AceDataset readFileToAce(HashMap brMap) throws IOException {
         AceDataset ace = new AceDataset();
         ArrayList<AceSoil> soils = readSoilSites(brMap);
         for (AceSoil soil : soils) {
             ace.addSoil(soil.rebuildComponent());
         }
-        
+
         return ace;
     }
 
@@ -74,7 +73,7 @@ public class DssatSoilInput extends DssatCommonInput {
         }
         return arr;
     }
-    
+
     protected ArrayList<AceSoil> readSoilSites(HashMap brMap) throws IOException {
 
         String slNotes = null;
@@ -117,7 +116,7 @@ public class DssatSoilInput extends DssatCommonInput {
 
                     // header info
                     if (flg[1].equals("") && flg[2].equals("data")) {
-                        
+
                         site.getId(true);
                         site = new AceSoil();
 
@@ -130,7 +129,7 @@ public class DssatSoilInput extends DssatCommonInput {
                         formats.put("soil_name", 51);
                         // Read line and save into return holder
 //                        sites.add(readLine(line.substring(1), formats));
-                         readLine(line.substring(1), formats, site);
+                        readLine(line.substring(1), formats, site);
                         if (slNotes != null && !slNotes.equals("")) {
                             site.update("sl_notes", slNotes);
                         }
