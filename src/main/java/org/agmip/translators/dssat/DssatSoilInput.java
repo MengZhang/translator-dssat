@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import org.agmip.ace.AceDataset;
 import org.agmip.ace.AceRecord;
 import org.agmip.ace.AceSoil;
 import org.agmip.ace.util.AceFunctions;
@@ -45,6 +46,16 @@ public class DssatSoilInput extends DssatCommonInput {
 
         return ret;
     }
+    
+    protected AceDataset readFileToAce(HashMap brMap) throws IOException {
+        AceDataset ace = new AceDataset();
+        ArrayList<AceSoil> soils = readSoilSites(brMap);
+        for (AceSoil soil : soils) {
+            ace.addSoil(soil.rebuildComponent());
+        }
+        
+        return ace;
+    }
 
     /**
      * DSSAT Soil Data input method for Controller using (return map will not be
@@ -57,7 +68,7 @@ public class DssatSoilInput extends DssatCommonInput {
         ArrayList<AceSoil> soils = readSoilSites(brMap);
         ArrayList<HashMap> arr = new ArrayList();
         for (AceSoil soil : soils) {
-            String json = new String(soil.getRawComponent(), "UTF-8");
+            String json = new String(soil.rebuildComponent(), "UTF-8");
             HashMap data = JSONAdapter.fromJSON(json);
             arr.add((HashMap) data);
         }
@@ -68,7 +79,7 @@ public class DssatSoilInput extends DssatCommonInput {
 
         String slNotes = null;
         ArrayList<AceSoil> sites = new ArrayList<AceSoil>();
-        AceSoil site = new AceSoil(AceFunctions.getBlankComponent());
+        AceSoil site = null;
         String line;
         BufferedReader brS = null;
         Object buf;
@@ -107,7 +118,8 @@ public class DssatSoilInput extends DssatCommonInput {
                     // header info
                     if (flg[1].equals("") && flg[2].equals("data")) {
                         
-                        site = new AceSoil(AceFunctions.getBlankComponent());
+                        site.getId(true);
+                        site = new AceSoil();
 
                         // Set variables' formats
                         formats.clear();
