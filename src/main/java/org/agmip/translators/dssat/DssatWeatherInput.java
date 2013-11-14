@@ -25,7 +25,6 @@ import org.slf4j.LoggerFactory;
 public class DssatWeatherInput extends DssatCommonInput {
 
     private static final Logger LOG = LoggerFactory.getLogger(DssatWeatherInput.class);
-    public String dailyKey = "dailyWeather";  // P.S. the key name might change
 
     /**
      * Constructor with no parameters Set jsonKey as "weather"

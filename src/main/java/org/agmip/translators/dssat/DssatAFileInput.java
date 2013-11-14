@@ -6,6 +6,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import org.agmip.ace.AceDataset;
+import org.agmip.ace.AceExperiment;
+import org.agmip.ace.AceObservedData;
+import org.agmip.util.JSONAdapter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * DSSAT AFile Data I/O API Class
@@ -15,6 +21,7 @@ import java.util.LinkedHashMap;
  */
 public class DssatAFileInput extends DssatCommonInput {
 
+    private static final Logger LOG = LoggerFactory.getLogger(DssatAFileInput.class);
     public String obvFileKey = "summary";  // P.S. the key name might change
     public String obvDataKey = "data";     // P.S. the key name might change
 
@@ -64,6 +71,15 @@ public class DssatAFileInput extends DssatCommonInput {
         return ret;
     }
 
+    protected AceDataset readFileToAce(HashMap brMap) throws IOException {
+        AceDataset ace = new AceDataset();
+//        AceExperiment exp = new AceExperiment();
+        readObvData(brMap, ace);
+//        ace.addExperiment(exp.rebuildComponent());
+
+        return ace;
+    }
+
     /**
      * DSSAT AFile Data input method for Controller using (return map will not
      * be compressed)
@@ -71,17 +87,31 @@ public class DssatAFileInput extends DssatCommonInput {
      * @param brMap The holder for BufferReader objects for all files
      * @return result data holder object
      */
-    protected HashMap readObvData(HashMap brMap) throws IOException {
+    protected HashMap<String, HashMap> readObvData(HashMap brMap) throws IOException {
+        AceDataset ace = new AceDataset();
+        readObvData(brMap ,ace);
+        HashMap<String, HashMap> map = new HashMap();
+        for (AceExperiment exp : ace.getExperiments()) {
+            String exname = exp.getValueOr("exname", "");
+            String json = new String(exp.rebuildComponent(), "UTF-8");
+            HashMap data = JSONAdapter.fromJSON(json);
+            map.put(exname, data);
+        }
+        return map;
+    }
 
-        HashMap files = new HashMap();
-        HashMap file = new HashMap();
+    protected void readObvData(HashMap brMap, AceDataset ace) throws IOException {
+
+//        HashMap files = new HashMap();
+//        HashMap file = new HashMap();
+        AceExperiment exp;
         String line;
         HashMap mapA;
         BufferedReader brA = null;
         Object buf;
         LinkedHashMap formats = new LinkedHashMap();
-        ArrayList titles = new ArrayList();
-        ArrayList obvData;
+        ArrayList<String> titles = new ArrayList();
+        AceObservedData obvData;
         DssatObservedData obvDataList = new DssatObservedData();    // Varibale list definition
         String pdate;
 
@@ -89,7 +119,7 @@ public class DssatAFileInput extends DssatCommonInput {
 
         // If AFile File is no been found
         if (mapA.isEmpty()) {
-            return file;
+            return;
         }
 
         for (Object keyA : mapA.keySet()) {
@@ -97,16 +127,17 @@ public class DssatAFileInput extends DssatCommonInput {
             buf = mapA.get(keyA);
             String fileName = (String) keyA;
 //            String exname = fileName.replaceAll("\\.", "").replaceAll("A$", "");
-            String exname = fileName.replaceAll("\\.\\w\\wA$", "");
+            String baseExname = fileName.replaceAll("\\.\\w\\wA$", "");
             String crid = fileName.replaceAll("\\w+\\.", "").replaceAll("A$", "");
+            String local_name = "";
             if (buf instanceof char[]) {
                 brA = new BufferedReader(new CharArrayReader((char[]) buf));
             } else {
                 brA = (BufferedReader) buf;
             }
 
-            file = new HashMap();
-            obvData = new ArrayList();
+//            file = new HashMap();
+//            obvData = new ArrayList();
 
             while ((line = brA.readLine()) != null) {
 
@@ -121,13 +152,16 @@ public class DssatAFileInput extends DssatCommonInput {
 
                         // Set variables' formats
                         line = line.replaceAll(".*:", "").trim();
-                        formats.clear();
-                        formats.put("null", 10);  // P.S. Since exname in top line is not reliable, read from file name
-                        formats.put("local_name", line.length());
+//                        formats.clear();
+//                        formats.put("null", 10);  // P.S. Since exname in top line is not reliable, read from file name
+//                        formats.put("local_name", line.length());
                         // Read line and save into return holder
-                        file.putAll(readLine(line, formats));
-                        file.put("exname", exname);
-                        file.put("crid", DssatCRIDHelper.get3BitCrid(crid));
+                        if (line.length() > 10) {
+                            local_name = line.substring(10).trim();
+                        }
+//                        readLine(line, formats, exp);
+//                        exp.update("exname", baseExname);
+//                        exp.update("crid", DssatCRIDHelper.get3BitCrid(crid));
 
                     } // Read data info 
                     else {
@@ -137,19 +171,34 @@ public class DssatAFileInput extends DssatCommonInput {
                             formats.put(titles.get(i), 6);
                         }
                         // Read line and save into return holder
-                        HashMap tmp = readLine(line, formats);
-                        pdate = getPdate(brMap, (String) tmp.get("trno_a"), fileName.replaceAll("A$", "X"));
-                        for (int i = 0; i < titles.size(); i++) {
-                            String title = (String) titles.get(i);
-                            if (obvDataList.isDateType(title)) {
-                                translateDateStrForDOY(tmp, (String) title, pdate);
-//                            String val = (String) tmp.get(title);
-//                            if (val != null && val.length() > 3) {
-//                                tmp.put(title, val.substring(val.length() - 3, val.length()));
-//                            }
+                        String trno = line.substring(0 ,6).trim();
+                        if (trno.equals("")) {
+                            LOG.warn("Invliad treatment number found in {}", fileName);
+                            continue;
+                        }
+                        String exname = baseExname + "_" + trno;
+                        exp = ace.getExperiment(exname);
+                        if (exp != null) {
+                            exp = new AceExperiment();
+                            exp.update("exname", exname);
+                            exp.update("crid", DssatCRIDHelper.get3BitCrid(crid));
+                            if (!local_name.equals("")) {
+                                exp.update("local_name", local_name);
                             }
                         }
-                        addToArray(obvData, tmp, "trno_a");
+                        obvData = exp.getOberservedData();
+                        readLine(line, formats, obvData);
+                        pdate = getPdate(exp);
+                        for (int i = 0; i < titles.size(); i++) {
+                            String title = titles.get(i);
+                            if (obvDataList.isDateType(title)) {
+                                translateDateStrForDOY(obvData, title, pdate);
+                            }
+                        }
+//                        addToArray(obvData, tmp, "trno_a");
+                        obvData.remove("trno_a");
+                        exp.getId(true);
+                        ace.addExperiment(exp.rebuildComponent());
                     }
 
                 } // Read Observed title
@@ -171,13 +220,13 @@ public class DssatAFileInput extends DssatCommonInput {
                 } else {
                 }
             }
-            file.put(obvDataKey, obvData);
-            files.put(exname, file);
+//            exp.put(obvDataKey, obvData);
+//            files.put(exname, exp);
         }
 
         brA.close();
 
-        return files;
+//        return files;
     }
 
     /**

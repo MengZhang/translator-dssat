@@ -17,6 +17,10 @@ import java.util.LinkedHashMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import org.agmip.ace.AceComponent;
+import org.agmip.ace.AceEvent;
+import org.agmip.ace.AceEventCollection;
+import org.agmip.ace.AceEventType;
+import org.agmip.ace.AceExperiment;
 import org.agmip.ace.AceRecord;
 import org.agmip.ace.AceRecordCollection;
 import org.agmip.ace.LookupCodes;
@@ -176,6 +180,16 @@ public abstract class DssatCommonInput implements TranslatorInput {
 
         if (m.get(id) != null) {
             m.put(id, translateDateStrForDOY((String) m.get(id), pdate));
+        }
+    }
+    protected void translateDateStrForDOY(AceComponent m, String id, String pdate) {
+
+        try {
+            if (m.getValue(id) != null) {
+                m.update(id, translateDateStrForDOY((String) m.getValue(id), pdate));
+            }
+        } catch (IOException e) {
+            LOG.warn(Functions.getStackTrace(e));
         }
     }
 
@@ -679,6 +693,20 @@ public abstract class DssatCommonInput implements TranslatorInput {
      *
      * @param m the files content holder
      */
+    protected String getPdate(AceExperiment exp) {
+        AceEventCollection events = exp.getEvents();
+        for (Iterator<AceEvent> it = events.iterator(); it.hasNext();) {
+            AceEvent aceEvent = it.next();
+            if (aceEvent.getEventType().equals(AceEventType.ACE_PLANTING_EVENT)) {
+                try {
+                    return aceEvent.getValueOr("date", "");
+                } catch (IOException ex) {
+                    LOG.warn(Functions.getStackTrace(ex));
+                }
+            }
+        }
+        return "";
+    }
     protected String getPdate(HashMap m, String trno, String fileName) {
 
         BufferedReader br;
