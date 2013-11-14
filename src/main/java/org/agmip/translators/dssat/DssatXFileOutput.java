@@ -334,7 +334,7 @@ public class DssatXFileOutput extends DssatCommonOutput implements DssatXATFileO
                         // Set planting info
                         // To make comparision only on the planting information (without crop data), use HashMap to rebuild pure planting map
                         copyItem(mpData, evtData, "date");
-                        copyItem(mpData, evtData, "pldae");
+                        copyItem(mpData, evtData, "edate");
                         copyItem(mpData, evtData, "plpop");
                         copyItem(mpData, evtData, "plpoe");
                         copyItem(mpData, evtData, "plma");
@@ -626,7 +626,7 @@ public class DssatXFileOutput extends DssatCommonOutput implements DssatXATFileO
                     sbData.append(String.format("%1$2s %2$5s %3$5s %4$5s %5$5s %6$5s %7$5s %8$5s %9$5s %10$5s %11$5s %12$5s %13$5s %14$5s %15$5s                        %16$s\r\n",
                             idx + 1,
                             formatDateStr(getValueOr(secData, "date", defValD).toString()),
-                            formatDateStr(getValueOr(secData, "pldae", defValD).toString()),
+                            formatDateStr(getValueOr(secData, "edate", defValD).toString()),
                             formatNumStr(5, secData, "plpop", getValueOr(secData, "plpoe", defValR)),
                             formatNumStr(5, secData, "plpoe", getValueOr(secData, "plpop", defValR)),
                             getValueOr(secData, "plma", defValC), // P.S. Set default value as "S"(Cancelled)
