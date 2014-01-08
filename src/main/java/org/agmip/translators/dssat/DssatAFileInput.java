@@ -178,7 +178,7 @@ public class DssatAFileInput extends DssatCommonInput {
                         }
                         String exname = baseExname + "_" + trno;
                         exp = ace.getExperiment(exname);
-                        if (exp != null) {
+                        if (exp == null) {
                             exp = new AceExperiment();
                             exp.update("exname", exname);
                             exp.update("crid", DssatCRIDHelper.get3BitCrid(crid));
@@ -187,7 +187,7 @@ public class DssatAFileInput extends DssatCommonInput {
                             }
                         }
                         obvData = exp.getOberservedData();
-                        readLine(line, formats, obvData);
+                        readLine(line, formats, obvData, true);
                         pdate = getPdate(exp);
                         for (int i = 0; i < titles.size(); i++) {
                             String title = titles.get(i);
